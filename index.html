@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueueFlow v1.1 - 統合タスクキュー＆動的プロジェクト見通し管理</title>
+  <style>
+    :root {
+      --bg-body: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --bg-hover: #e2e8f0;
+      --text-main: #0f172a;
+      --text-secondary: #64748b;
+      --border-color: #e2e8f0;
+      --border-strong: #cbd5e1;
+
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-soft: #eef2ff;
+      --primary-border: #c7d2fe;
+
+      --success: #059669;
+      --success-hover: #047857;
+      --success-soft: #ecfdf5;
+      --success-border: #a7f3d0;
+
+      --warning: #d97706;
+      --warning-soft: #fffbeb;
+      --warning-border: #fde68a;
+
+      --danger: #e11d48;
+      --danger-soft: #fff1f2;
+      --danger-border: #fecdd3;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ヘッダー・ナビゲーション */
+    header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .header-inner {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 800;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .version-badge {
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--primary-soft);
+      color: var(--primary);
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--primary-border);
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 640px) {
+      .brand-sub { display: none; }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* タブバー */
+    .nav-tabs {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 16px;
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      border-top: 1px solid var(--bg-subtle);
+      scrollbar-width: none;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      appearance: none;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: var(--bg-body);
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-count {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      color: var(--text-secondary);
+    }
+
+    .tab-btn.active .tab-count {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    /* メインレイアウト */
+    main {
+      flex: 1;
+      max-width: 1040px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px 16px 48px;
+    }
+
+    .view-section {
+      display: none;
+      animation: fadeIn 0.18s ease-out;
+    }
+    .view-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 共通コンポーネント：ボタン・入力・カード */
+    .btn {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-success:hover:not(:disabled) {
+      background: var(--success-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-subtle);
+      color: var(--text-main);
+      border-color: var(--border-color);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--bg-hover);
+    }
+
+    .btn-outline {
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      border-color: var(--border-strong);
+    }
+    .btn-outline:hover:not(:disabled) {
+      background: var(--bg-subtle);
+      color: var(--text-main);
+    }
+
+    .btn-danger-soft {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: var(--danger-border);
+    }
+    .btn-danger-soft:hover:not(:disabled) {
+      background: #ffe4e6;
+    }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .btn-xs {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .input, .select, .textarea {
+      width: 100%;
+      padding: 9px 12px;
+      font-size: 14px;
+      color: var(--text-main);
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input:focus, .select:focus, .textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .badge-primary { background: var(--primary-soft); color: var(--primary); border: 1px solid var(--primary-border); }
+    .badge-success { background: var(--success-soft); color: var(--success); border: 1px solid var(--success-border); }
+    .badge-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-border); }
+    .badge-warning { background: var(--warning-soft); color: var(--warning); border: 1px solid var(--warning-border); }
+    .badge-neutral { background: var(--bg-subtle); color: var(--text-secondary); border: 1px solid var(--border-color); }
+    .badge-dark { background: #1e293b; color: #fff; }
+
+    /* セクション見出し */
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .section-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* クイック突発追加バー */
+    .quick-spot-bar {
+      background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+      border: 1px solid var(--primary-border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      margin-bottom: 22px;
+      box-shadow: var(--shadow-sm);
+    }
+    .quick-spot-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .quick-spot-title {
+      flex: 1 1 240px;
+    }
+    .quick-spot-hours {
+      width: 96px;
+    }
+
+    /* キューグループ */
+    .queue-block {
+      margin-bottom: 26px;
+    }
+    .queue-block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .queue-block-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .task-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .task-card:hover {
+      border-color: var(--primary-border);
+      box-shadow: var(--shadow-sm);
+    }
+    .task-card.spot-card {
+      border-left: 4px solid var(--warning);
+    }
+    .task-card.routine-card {
+      border-left: 4px solid var(--success);
+    }
+    .task-card.project-card {
+      border-left: 4px solid var(--primary);
+    }
+
+    .task-card-main {
+      flex: 1 1 280px;
+      min-width: 0;
+    }
+    .task-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .task-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+    .task-card-note {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      background: var(--bg-body);
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .task-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 600px) {
+      .task-card-actions {
+        width: 100%;
+        padding-top: 8px;
+        border-top: 1px solid var(--bg-subtle);
+      }
+      .task-card-actions .btn {
+        flex: 1;
+      }
+    }
+
+    /* 見通しグリッド */
+    .forecast-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      background: var(--bg-body);
+      padding: 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      margin: 12px 0;
+    }
+    .forecast-item-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .forecast-item-val {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: var(--border-color);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+    .progress-bar-fill.overdue {
+      background: var(--danger);
+    }
+
+    /* サブタブ（WBS / 繰り返し） */
+    .sub-pills {
+      display: inline-flex;
+      background: var(--bg-subtle);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    .sub-pill {
+      appearance: none;
+      border: none;
+      background: transparent;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .sub-pill.active {
+      background: var(--bg-card);
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* WBS行 */
+    .wbs-row {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .wbs-row.is-head {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
+    }
+    .wbs-row.is-inactive {
+      opacity: 0.6;
+      background: var(--bg-body);
+    }
+    .wbs-row-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1 1 260px;
+      min-width: 0;
+    }
+    .wbs-row-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    /* 一括操作バー */
+    .bulk-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    /* インポートプレビューテーブル */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    th {
+      background: var(--bg-subtle);
+      color: var(--text-secondary);
+      font-weight: 700;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--bg-subtle);
+      vertical-align: middle;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* モーダル */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-box {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      max-width: 520px;
+      width: 100%;
+      padding: 22px;
+      box-shadow: var(--shadow-lg);
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: fadeIn 0.16s ease-out;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .modal-title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 500px) {
+      .form-grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* トースト通知 */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      left: 20px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      background: #1e293b;
+      color: #fff;
+      padding: 11px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 440px;
+      animation: fadeIn 0.2s ease-out;
+    }
+    .toast.error {
+      background: #9f1239;
+    }
+    .toast-undo {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .toast-undo:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .empty-state {
+      background: var(--bg-card);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 32px 20px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-logo">QF</div>
+        <div>
+          <div class="brand-title">
+            <span>QueueFlow</span>
+            <span class="version-badge">v1.1</span>
+          </div>
+          <div class="brand-sub">先頭抽出型タスクキュー ＆ 動的プロジェクト見通し管理</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModal('modal-data')">
+          <span>💾 データ管理</span>
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()">
+          <span>＋ 新規プロジェクト</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4ビューナビゲーション -->
+    <nav class="nav-tabs">
+      <button id="tab-today" class="tab-btn active" onclick="switchTab('today')">
+        <span>⚡ 今日の実行キュー</span>
+        <span id="badge-today-count" class="tab-count">0</span>
+      </button>
+      <button id="tab-forecast" class="tab-btn" onclick="switchTab('forecast')">
+        <span>📊 プロジェクト見通し</span>
+      </button>
+      <button id="tab-wbs" class="tab-btn" onclick="switchTab('wbs')">
+        <span>📋 WBS・繰り返し管理</span>
+      </button>
+      <button id="tab-import" class="tab-btn" onclick="switchTab('import')">
+        <span>📥 WBSインポート・移行</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main>
+    <!-- ===================================================================
+         VIEW 1: 今日の実行キュー (Today's Execution Queue)
+         =================================================================== -->
+    <section id="view-today" class="view-section active">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">今日の実行キュー</h1>
+          <p class="section-desc">突発タスク・本日の繰り返しタスク・各プロジェクトの「先頭1件」のみを抽出しています。</p>
+        </div>
+        <div class="badge badge-neutral" id="today-date-badge" style="font-size: 12px; padding: 5px 10px;"></div>
+      </div>
+
+      <!-- 突発・単発タスク クイック追加バー -->
+      <div class="quick-spot-bar">
+        <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
+          ⚡ 突発・単発タスクを即座にキューへ追加（Enterキーで連続登録）
+        </div>
+        <form class="quick-spot-form" onsubmit="handleQuickSpotAdd(event)">
+          <input type="text" id="spot-input-title" class="input quick-spot-title" placeholder="例：電球を買いに行く、〇〇さんに返信する、役所へ書類提出..." required />
+          <input type="number" id="spot-input-hours" class="input quick-spot-hours" step="0.25" min="0.1" max="50" value="0.5" title="見積もり工数(時間)" />
+          <span style="font-size: 12px; color: var(--text-secondary);">時間</span>
+          <button type="submit" class="btn btn-primary">＋ 突発追加</button>
+        </form>
+      </div>
+
+      <!-- セクションA: 突発・単発タスク (Spot) -->
+      <div class="queue-block">
+        <div class="queue-block-header">
+          <div class="queue-block-title">
+            <span>⚡ 突発・単発タスク (Spot)</span>
+            <span id="spot-count-badge" class="badge badge-warning">0件</span>
+          </div>
+          <span style="font-size: 11px; color: var(--text-secondary);">埋もれないよう未完了を全件表示</span>
+        </div>
+        <div id="today-spot-list"></div>
+      </div>
+
+      <!-- セクションB: 今日の繰り返しタスク (Routines) -->
+      <div class="queue-block">
+        <div class="queue-block-header">
+          <div class="queue-block-title">
+            <span>🔁 今日の繰り返しタスク (Routines)</span>
+            <span id="routine-due-badge" class="badge badge-success">0件</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="routine-sleeping-info" style="font-size: 12px; color: var(--text-secondary);">スリープ中: 0件</span>
+            <button class="btn btn-outline btn-xs" onclick="jumpToRoutineTab()">設定・スリープ一覧</button>
+          </div>
+        </div>
+        <div id="today-routine-list"></div>
+      </div>
+
+      <!-- セクションC: プロジェクト別・先頭キュー (Project Heads) -->
+      <div class="queue-block">
+        <div class="queue-block-header">
+          <div class="queue-block-title">
+            <span>📌 プロジェクト別・先頭キュー (Project Heads)</span>
+            <span id="project-head-badge" class="badge badge-primary">0件</span>
+          </div>
+          <span style="font-size: 11px; color: var(--text-secondary);">優先度順に表示・完了で次が自動繰り上がり</span>
+        </div>
+        <div id="today-project-list"></div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         VIEW 2: プロジェクト見通し (Project Forecast & Simulation)
+         =================================================================== -->
+    <section id="view-forecast" class="view-section">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">プロジェクト見通し（動的シミュレーション）</h1>
+          <p class="section-desc">残工数と週間投入時間から完了見込み日を自動算出。タスクごとのリスケ作業は不要です。</p>
+        </div>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer;">
+          <input type="checkbox" id="toggle-closed-projects" onchange="renderAll()" />
+          <span>クローズ済みプロジェクトを表示</span>
+        </label>
+      </div>
+
+      <div id="forecast-list"></div>
+    </section>
+
+    <!-- ===================================================================
+         VIEW 3: WBS・一括細分化 & 繰り返し管理
+         =================================================================== -->
+    <section id="view-wbs" class="view-section">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">WBS・一括細分化 ＆ 繰り返し管理</h1>
+          <p class="section-desc">タスクの順序入れ替え、「ここまで完了」ポインタ移動、チェックボックス選択による一括クローズを行います。</p>
+        </div>
+      </div>
+
+      <!-- サブモード切替 -->
+      <div class="sub-pills">
+        <button id="subpill-wbs" class="sub-pill active" onclick="switchWbsSubMode('wbs')">📋 プロジェクトWBS管理</button>
+        <button id="subpill-routine" class="sub-pill" onclick="switchWbsSubMode('routine')">🔁 繰り返しタスク設定・管理</button>
+      </div>
+
+      <!-- (a) プロジェクトWBS管理パネル -->
+      <div id="panel-wbs-projects">
+        <div class="card" style="margin-bottom: 14px;">
+          <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px;">
+            <div style="flex: 1 1 280px;">
+              <label class="form-label" for="wbs-project-select">対象プロジェクト選択</label>
+              <select id="wbs-project-select" class="select" onchange="onChangeWbsProject(this.value)"></select>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <button class="btn btn-primary" onclick="openBulkAddModal()">＋ テキスト一括追加（細分化）</button>
+              <button class="btn btn-outline" onclick="switchTab('import')">📥 CSV/Excel取込</button>
+            </div>
+          </div>
+          <div id="wbs-project-meta" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bg-subtle); font-size: 13px; color: var(--text-secondary); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;"></div>
+        </div>
+
+        <!-- 一括操作バー -->
+        <div class="bulk-bar">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+              <input type="checkbox" id="wbs-select-all" onchange="toggleSelectAllWbs(this.checked)" />
+              <span>表示中を全選択</span>
+            </label>
+            <span id="wbs-selected-badge" class="badge badge-primary hidden">0件選択中</span>
+            <div id="wbs-bulk-btns" class="hidden" style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <button class="btn btn-danger-soft btn-sm" onclick="bulkUpdateWbsTasks('closed')">✕ 選択を一括クローズ (不要)</button>
+              <button class="btn btn-success btn-sm" onclick="bulkUpdateWbsTasks('done')">✓ 選択を一括完了</button>
+              <button class="btn btn-outline btn-sm" onclick="bulkUpdateWbsTasks('todo')">↺ 未着手に戻す</button>
+            </div>
+          </div>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer;">
+            <input type="checkbox" id="toggle-wbs-inactive" onchange="renderWbsPanel()" />
+            <span>完了・クローズ済みを表示</span>
+          </label>
+        </div>
+
+        <div id="wbs-task-list"></div>
+      </div>
+
+      <!-- (b) 繰り返しタスク管理パネル -->
+      <div id="panel-wbs-routines" class="hidden">
+        <div class="card" style="margin-bottom: 16px;">
+          <h2 style="font-size: 15px; font-weight: 700; margin-bottom: 12px;">🔁 新しい繰り返しタスクを登録</h2>
+          <form onsubmit="handleAddRoutine(event)">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">タスク名 *</label>
+                <input type="text" id="routine-title" class="input" placeholder="例：エアコンフィルター掃除、家計簿の振り返り" required />
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">見積もり工数 (h)</label>
+                  <input type="number" id="routine-hours" class="input" step="0.25" min="0.1" max="50" value="0.5" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">繰り返し方式</label>
+                  <select id="routine-mode" class="select" onchange="onChangeRoutineMode()">
+                    <option value="interval">完了日からN日後 (間隔)</option>
+                    <option value="weekly">毎週 〇曜日</option>
+                    <option value="monthly">毎月 〇日</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 方式ごとの詳細パラメータ -->
+            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; background: var(--bg-body); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <div id="routine-param-interval" style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600;">完了した日の</span>
+                <input type="number" id="routine-interval-days" class="input" style="width: 80px;" min="1" max="365" value="7" />
+                <span style="font-size: 13px; font-weight: 600;">日後に再出現（遅れても赤字にならない間隔方式）</span>
+              </div>
+
+              <div id="routine-param-weekly" class="hidden" style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600;">出現曜日：毎週</span>
+                <select id="routine-weekday" class="select" style="width: 120px;">
+                  <option value="0">日曜日</option>
+                  <option value="1">月曜日</option>
+                  <option value="2">火曜日</option>
+                  <option value="3">水曜日</option>
+                  <option value="4">木曜日</option>
+                  <option value="5">金曜日</option>
+                  <option value="6" selected>土曜日</option>
+                </select>
+              </div>
+
+              <div id="routine-param-monthly" class="hidden" style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600;">出現日：毎月</span>
+                <input type="number" id="routine-monthday" class="input" style="width: 80px;" min="1" max="31" value="1" />
+                <span style="font-size: 13px; font-weight: 600;">日（月末日は自動調整）</span>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer;">
+                  <input type="checkbox" id="routine-start-today" checked />
+                  <span>今日すぐキューに出現させる</span>
+                </label>
+                <button type="submit" class="btn btn-success">＋ 繰り返し登録</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="bulk-bar">
+          <div style="font-size: 13px; font-weight: 700;">登録済み繰り返しタスク一覧</div>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer;">
+            <input type="checkbox" id="toggle-closed-routines" onchange="renderRoutinePanel()" />
+            <span>停止（クローズ）済みを表示</span>
+          </label>
+        </div>
+
+        <div id="routine-manage-list"></div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         VIEW 4: WBSインポート・移行 (PC Bulk CSV/TSV Import & Backup)
+         =================================================================== -->
+    <section id="view-import" class="view-section">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">WBSインポート・移行（PC作成CSV / Excelコピペ対応）</h1>
+          <p class="section-desc">パソコンで作成したプロジェクト計画表をまとめて取り込み、新規作成または進行中プロジェクト末尾へ追記します。</p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-outline btn-sm" onclick="downloadSampleCsv()">📄 サンプルCSVダウンロード</button>
+          <button class="btn btn-secondary btn-sm" onclick="fillSampleImportText()">📋 入力欄にサンプルを貼る</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.6;">
+          <strong>対応列フォーマット（カンマ区切りCSV または Excel/スプレッドシートからのタブ区切りペースト）：</strong><br />
+          <code style="background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; color: var(--text-main);">プロジェクト名, タスク名, 見積もり工数(h), 週間投入時間(h), 目標期限(YYYY-MM-DD), メモ</code><br />
+          ※ 1行目のヘッダー行は自動判定してスキップします。同名の「進行中」プロジェクトがあれば末尾へ差分追記します。
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label class="btn btn-outline btn-sm" style="cursor: pointer;">
+            <span>📂 CSVファイルを選択して読み込む (.csv / .tsv / .txt)</span>
+            <input type="file" accept=".csv,.tsv,.txt" onchange="handleImportFileSelect(event)" style="display: none;" />
+          </label>
+        </div>
+
+        <textarea id="import-raw-textarea" class="textarea" rows="7" placeholder="ここにExcelやGoogleスプレッドシートの表をコピー＆ペーストするか、CSVテキストを入力してください..." oninput="parseImportPreview()"></textarea>
+      </div>
+
+      <!-- ライブプレビュー領域 -->
+      <div id="import-preview-container" class="hidden" style="margin-bottom: 24px;">
+        <div class="section-header">
+          <div>
+            <h2 style="font-size: 15px; font-weight: 700;">インポート内容プレビュー</h2>
+            <p id="import-preview-summary" style="font-size: 12px; color: var(--primary); font-weight: 600;"></p>
+          </div>
+          <button class="btn btn-primary" onclick="executeBulkImport()">🚀 インポートを実行する</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>登録先判定</th>
+                <th>プロジェクト名</th>
+                <th>タスク名</th>
+                <th>工数</th>
+                <th>週投入</th>
+                <th>目標期限</th>
+                <th>メモ</th>
+              </tr>
+            </thead>
+            <tbody id="import-preview-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- データ保全・バックアップカード（ビュー4からも直接操作可能に配置） -->
+      <div class="card">
+        <h2 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">💾 データバックアップ・端末間移行</h2>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+          v1.1 スキーマ（JSON形式）での完全バックアップ・復元、および確認用CSV出力が行えます。v1.0形式のJSON復元時も自動マイグレーションされます。
+        </p>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <button class="btn btn-primary btn-sm" onclick="exportJsonBackup()">📥 JSONバックアップ保存</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportAllCsv()">📊 全タスクCSV出力</button>
+          <label class="btn btn-outline btn-sm" style="cursor: pointer;">
+            <span>📂 JSONファイルから復元 (.json)</span>
+            <input type="file" accept=".json" onchange="importJsonBackup(event)" style="display: none;" />
+          </label>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================================================================
+       MODALS (新規/編集プロジェクト、テキスト一括追加、データ管理)
+       =================================================================== -->
+
+  <!-- モーダル1: プロジェクト新規作成・編集 -->
+  <div id="modal-project" class="modal-backdrop" onclick="if(event.target===this) closeModal('modal-project')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-project-title">新規プロジェクト作成</h3>
+        <button class="btn btn-outline btn-xs" onclick="closeModal('modal-project')">✕</button>
+      </div>
+      <form onsubmit="handleSaveProject(event)">
+        <input type="hidden" id="proj-edit-id" />
+        <div class="form-group">
+          <label class="form-label">プロジェクト名 *</label>
+          <input type="text" id="proj-name" class="input" placeholder="例：資格試験の合格、Webアプリ開発、引っ越し準備" required />
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">週間投入時間 (時間/週) *</label>
+            <input type="number" id="proj-weekly-hours" class="input" step="0.5" min="0.5" max="100" value="5" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">目標期限 (任意)</label>
+            <input type="date" id="proj-deadline" class="input" />
+          </div>
+        </div>
+        <div class="form-group" id="proj-initial-tasks-group">
+          <label class="form-label">初期WBSタスク（1行1タスク・任意）</label>
+          <textarea id="proj-initial-tasks" class="textarea" rows="5" placeholder="参考書を購入する, 0.5&#10;第1章を読む, 2&#10;練習問題を解く, 1.5&#10;※「タスク名, 工数」またはタスク名のみ（デフォルト1h）"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-project')">キャンセル</button>
+          <button type="submit" class="btn btn-primary">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- モーダル2: WBSテキスト一括追加 -->
+  <div id="modal-bulk-add" class="modal-backdrop" onclick="if(event.target===this) closeModal('modal-bulk-add')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">テキスト一括追加（細分化）</h3>
+        <button class="btn btn-outline btn-xs" onclick="closeModal('modal-bulk-add')">✕</button>
+      </div>
+      <form onsubmit="handleBulkAddSubmit(event)">
+        <div class="form-group">
+          <label class="form-label">1行につき1タスクを入力（末尾に「, 1.5」で工数指定可能 / 省略時は1h）</label>
+          <textarea id="bulk-add-textarea" class="textarea" rows="7" placeholder="要件定義メモを作る, 1&#10;画面ワイヤーフレームを描く, 2&#10;プロトタイプ実装, 3.5&#10;動作確認と修正" required></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">挿入位置</label>
+          <select id="bulk-add-position" class="select">
+            <option value="bottom">末尾に追加する</option>
+            <option value="top">先頭（今すぐやる位置）に割り込ませる</option>
+          </select>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-bulk-add')">キャンセル</button>
+          <button type="submit" class="btn btn-primary">一括追加する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- モーダル3: データ管理 -->
+  <div id="modal-data" class="modal-backdrop" onclick="if(event.target===this) closeModal('modal-data')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">💾 データ管理・バックアップ</h3>
+        <button class="btn btn-outline btn-xs" onclick="closeModal('modal-data')">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">1. エクスポート（ファイル保存）</label>
+        <div class="form-grid-2">
+          <button class="btn btn-primary" onclick="exportJsonBackup()">📥 JSONバックアップ保存</button>
+          <button class="btn btn-secondary" onclick="exportAllCsv()">📊 全タスクCSV出力</button>
+        </div>
+      </div>
+
+      <div class="form-group" style="padding-top: 12px; border-top: 1px solid var(--border-color);">
+        <label class="form-label">2. JSONバックアップから復元（上書き・v1.0自動変換対応）</label>
+        <label class="btn btn-outline" style="width: 100%; cursor: pointer;">
+          <span>📂 JSONファイルを選択して復元 (.json)</span>
+          <input type="file" accept=".json" onchange="importJsonBackup(event)" style="display: none;" />
+        </label>
+      </div>
+
+      <div style="padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;">
+        <button class="btn btn-danger-soft btn-sm" onclick="confirmResetAll(false)">デモデータを再読込</button>
+        <button class="btn btn-danger-soft btn-sm" onclick="confirmResetAll(true)">全データを空にする</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- トースト通知エリア -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ===================================================================
+       APPLICATION LOGIC (JavaScript - Baseline v1.1 Spec)
+       =================================================================== -->
+  <script>
+    const STORAGE_KEY = 'queueflow_state_v1';
+    const LEGACY_STORAGE_KEYS = ['nextqueue_app_state_v1', 'queueflow_v1', 'queueflow_data'];
+
+    // 要件定義書 セクション3: v1.1 スキーマ準拠
+    let state = {
+      version: '1.1',
+      projects: [],   // { id, name, priority, weeklyHours, deadline, status: 'active'|'closed' }
+      tasks: [],      // { id, projectId, title, hours, memo, order, status: 'todo'|'done'|'closed', updatedAt }
+      spotTasks: [],  // { id, title, hours, status: 'todo'|'done'|'closed', createdAt }
+      routines: []    // { id, title, hours, repeatType: 'interval'|'weekly'|'monthly', repeatValue, status: 'todo'|'sleeping'|'closed', nextDueDate, lastCompletedAt }
+    };
+
+    let selectedWbsProjectId = null;
+    let selectedWbsTaskIds = new Set();
+    let undoSnapshot = null;
+    let parsedImportRows = [];
+
+    // -------------------------------------------------------------------
+    // 日付・IDユーティリティ
+    // -------------------------------------------------------------------
+    function getTodayStr() {
+      return formatDate(new Date());
+    }
+
+    function getNowIso() {
+      return new Date().toISOString();
+    }
+
+    function formatDate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function parseLocalDate(str) {
+      if (!str) return null;
+      const [y, m, d] = str.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function addDaysStr(baseStr, days) {
+      const d = parseLocalDate(baseStr) || new Date();
+      d.setDate(d.getDate() + Number(days));
+      return formatDate(d);
+    }
+
+    function calcNextRoutineDate(routine, baseDateStr) {
+      const base = parseLocalDate(baseDateStr) || new Date();
+      const val = Number(routine.repeatValue);
+      if (routine.repeatType === 'interval') {
+        const d = new Date(base);
+        d.setDate(d.getDate() + (val || 1));
+        return formatDate(d);
+      }
+      if (routine.repeatType === 'weekly') {
+        const targetWd = isNaN(val) ? 0 : val;
+        const d = new Date(base);
+        d.setDate(d.getDate() + 1);
+        while (d.getDay() !== targetWd) {
+          d.setDate(d.getDate() + 1);
+        }
+        return formatDate(d);
+      }
+      if (routine.repeatType === 'monthly') {
+        const targetDay = val || 1;
+        let y = base.getFullYear();
+        let m = base.getMonth() + 1;
+        if (m > 11) { m = 0; y++; }
+        const lastDay = new Date(y, m + 1, 0).getDate();
+        const actualDay = Math.min(targetDay, lastDay);
+        return formatDate(new Date(y, m, actualDay));
+      }
+      return addDaysStr(baseDateStr, 1);
+    }
+
+    function uid(prefix = 'id') {
+      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    function escHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // -------------------------------------------------------------------
+    // v1.0 -> v1.1 自動マイグレーション＆ストレージ管理
+    // -------------------------------------------------------------------
+    function migrateToV1_1(rawObj) {
+      if (!rawObj || typeof rawObj !== 'object') return null;
+
+      // 既に v1.1 スキーマの場合も欠損フィールドを正規化
+      const projects = (rawObj.projects || []).map((p, idx) => ({
+        id: p.id || uid('proj'),
+        name: p.name || '名称未設定プロジェクト',
+        priority: typeof p.priority === 'number' ? p.priority : idx + 1,
+        weeklyHours: Number(p.weeklyHours) || 5.0,
+        deadline: p.deadline || '',
+        status: p.status === 'closed' ? 'closed' : 'active'
+      }));
+
+      const tasks = (rawObj.tasks || []).map((t, idx) => ({
+        id: t.id || uid('task'),
+        projectId: t.projectId,
+        title: t.title || '無題タスク',
+        hours: Number(t.hours) || 1.0,
+        memo: t.memo !== undefined ? t.memo : (t.note || ''),
+        order: typeof t.order === 'number' ? t.order : idx + 1,
+        status: ['todo', 'done', 'closed'].includes(t.status) ? t.status : 'todo',
+        updatedAt: t.updatedAt || getNowIso()
+      }));
+
+      // v1.0の spots 配列または v1.1の spotTasks 配列を統合
+      const rawSpots = rawObj.spotTasks || rawObj.spots || [];
+      const spotTasks = rawSpots.map(s => ({
+        id: s.id || uid('spot'),
+        title: s.title || '突発タスク',
+        hours: Number(s.hours) || 0.5,
+        status: ['todo', 'done', 'closed'].includes(s.status) ? s.status : 'todo',
+        createdAt: s.createdAt && s.createdAt.includes('T')
+          ? s.createdAt
+          : `${s.createdAt || getTodayStr()}T00:00:00Z`
+      }));
+
+      // v1.0の routines 構造から v1.1 構造へ変換
+      const today = getTodayStr();
+      const routines = (rawObj.routines || []).map(r => {
+        const repeatType = r.repeatType || r.mode || 'interval';
+        let repeatValue = r.repeatValue;
+        if (repeatValue === undefined) {
+          if (repeatType === 'weekly') repeatValue = Number(r.weekday ?? 0);
+          else if (repeatType === 'monthly') repeatValue = Number(r.monthday ?? 1);
+          else repeatValue = Number(r.intervalDays ?? 7);
+        }
+
+        let status = r.status;
+        if (status === 'active') {
+          status = (!r.nextDueDate || r.nextDueDate <= today) ? 'todo' : 'sleeping';
+        } else if (!['todo', 'sleeping', 'closed'].includes(status)) {
+          status = 'todo';
+        }
+
+        return {
+          id: r.id || uid('rtn'),
+          title: r.title || '繰り返しタスク',
+          hours: Number(r.hours) || 0.5,
+          repeatType,
+          repeatValue: Number(repeatValue),
+          status,
+          nextDueDate: r.nextDueDate || null,
+          lastCompletedAt: r.lastCompletedAt || null
+        };
+      });
+
+      return {
+        version: '1.1',
+        projects,
+        tasks,
+        spotTasks,
+        routines
+      };
+    }
+
+    // 日付経過による sleeping -> todo 自動復帰チェック
+    function syncRoutinesByDate() {
+      const today = getTodayStr();
+      let changed = false;
+      state.routines.forEach(r => {
+        if (r.status === 'sleeping' && r.nextDueDate && r.nextDueDate <= today) {
+          r.status = 'todo';
+          changed = true;
+        }
+      });
+      if (changed) saveState();
+    }
+
+    function saveState() {
+      state.version = '1.1';
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadState() {
+      // 1. 現行キーを確認
+      let raw = localStorage.getItem(STORAGE_KEY);
+      let migratedFromLegacy = false;
+
+      // 2. 旧バージョン（v1.0等）のキーが存在すれば自動移行
+      if (!raw) {
+        for (const legacyKey of LEGACY_STORAGE_KEYS) {
+          const legacyRaw = localStorage.getItem(legacyKey);
+          if (legacyRaw) {
+            raw = legacyRaw;
+            migratedFromLegacy = true;
+            break;
+          }
+        }
+      }
+
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          const isOldVersion = parsed.version !== '1.1' || migratedFromLegacy;
+          const converted = migrateToV1_1(parsed);
+          if (converted) {
+            state = converted;
+            syncRoutinesByDate();
+            saveState();
+            if (isOldVersion) {
+              setTimeout(() => showToast('既存データを v1.1 形式へ自動マイグレーションしました', false), 300);
+            }
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to parse storage:', e);
+        }
+      }
+
+      loadDemoData();
+    }
+
+    function loadDemoData() {
+      const today = getTodayStr();
+      const nowIso = getNowIso();
+      const p1 = uid('proj');
+      const p2 = uid('proj');
+
+      state = {
+        version: '1.1',
+        projects: [
+          {
+            id: p1,
+            name: 'ポートフォリオサイト公開',
+            priority: 1,
+            weeklyHours: 6.0,
+            deadline: addDaysStr(today, 21),
+            status: 'active'
+          },
+          {
+            id: p2,
+            name: '確定申告・経費整理',
+            priority: 2,
+            weeklyHours: 4.0,
+            deadline: addDaysStr(today, 14),
+            status: 'active'
+          }
+        ],
+        tasks: [
+          { id: uid('task'), projectId: p1, title: '掲載する制作実績3件のテキスト作成', hours: 2.0, memo: 'スクリーンショットも用意する', order: 1, status: 'todo', updatedAt: nowIso },
+          { id: uid('task'), projectId: p1, title: 'トップページとプロフィール実装', hours: 4.0, memo: '', order: 2, status: 'todo', updatedAt: nowIso },
+          { id: uid('task'), projectId: p1, title: 'GitHub Pagesへデプロイ・独自ドメイン確認', hours: 1.5, memo: '', order: 3, status: 'todo', updatedAt: nowIso },
+          { id: uid('task'), projectId: p2, title: '未整理のレシート・領収書を月別に仕分け', hours: 1.5, memo: '', order: 1, status: 'todo', updatedAt: nowIso },
+          { id: uid('task'), projectId: p2, title: '会計ソフトへCSV明細インポート', hours: 2.0, memo: '', order: 2, status: 'todo', updatedAt: nowIso }
+        ],
+        spotTasks: [
+          { id: uid('spot'), title: '郵便局で不在票の荷物を受け取る', hours: 0.5, status: 'todo', createdAt: nowIso }
+        ],
+        routines: [
+          { id: uid('rtn'), title: 'デスク周りのリセット・週次レビュー', hours: 0.5, repeatType: 'weekly', repeatValue: 6, status: 'todo', nextDueDate: null, lastCompletedAt: null },
+          { id: uid('rtn'), title: 'エアコンフィルター清掃', hours: 0.5, repeatType: 'interval', repeatValue: 30, status: 'sleeping', nextDueDate: addDaysStr(today, 12), lastCompletedAt: null }
+        ]
+      };
+      saveState();
+    }
+
+    function takeUndoSnapshot() {
+      undoSnapshot = JSON.stringify(state);
+    }
+
+    function performUndo() {
+      if (!undoSnapshot) return;
+      state = JSON.parse(undoSnapshot);
+      undoSnapshot = null;
+      saveState();
+      renderAll();
+      showToast('直前の操作を取り消しました', false);
+    }
+
+    function showToast(msg, withUndo = true, isError = false) {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast' + (isError ? ' error' : '');
+      el.innerHTML = `<span>${escHtml(msg)}</span>`;
+      if (withUndo && undoSnapshot) {
+        const btn = document.createElement('button');
+        btn.className = 'toast-undo';
+        btn.textContent = '元に戻す';
+        btn.onclick = () => {
+          performUndo();
+          el.remove();
+        };
+        el.appendChild(btn);
+      }
+      container.appendChild(el);
+      setTimeout(() => {
+        if (el.parentNode) el.remove();
+      }, 5000);
+    }
+
+    // -------------------------------------------------------------------
+    // タブ・モーダルナビゲーション
+    // -------------------------------------------------------------------
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      document.getElementById(`view-${tabName}`).classList.add('active');
+      renderAll();
+    }
+
+    function switchWbsSubMode(mode) {
+      document.getElementById('subpill-wbs').classList.toggle('active', mode === 'wbs');
+      document.getElementById('subpill-routine').classList.toggle('active', mode === 'routine');
+      document.getElementById('panel-wbs-projects').classList.toggle('hidden', mode !== 'wbs');
+      document.getElementById('panel-wbs-routines').classList.toggle('hidden', mode !== 'routine');
+    }
+
+    function jumpToRoutineTab() {
+      switchTab('wbs');
+      switchWbsSubMode('routine');
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    // -------------------------------------------------------------------
+    // VIEW 1: 今日の実行キュー ロジック (F-03, F-04, F-05)
+    // -------------------------------------------------------------------
+    function handleQuickSpotAdd(e) {
+      e.preventDefault();
+      const titleEl = document.getElementById('spot-input-title');
+      const hoursEl = document.getElementById('spot-input-hours');
+      const title = titleEl.value.trim();
+      const hours = parseFloat(hoursEl.value) || 0.5;
+      if (!title) return;
+
+      takeUndoSnapshot();
+      state.spotTasks.unshift({
+        id: uid('spot'),
+        title,
+        hours,
+        status: 'todo',
+        createdAt: getNowIso()
+      });
+      saveState();
+      titleEl.value = '';
+      titleEl.focus();
+      renderAll();
+      showToast(`突発タスク「${title}」を追加しました`);
+    }
+
+    function completeSpotTask(id, newStatus) {
+      const item = state.spotTasks.find(s => s.id === id);
+      if (!item) return;
+      takeUndoSnapshot();
+      item.status = newStatus;
+      saveState();
+      renderAll();
+      showToast(newStatus === 'done' ? `「${item.title}」を完了しました` : `「${item.title}」を見送りました`);
+    }
+
+    function completeRoutineToday(id) {
+      const r = state.routines.find(x => x.id === id);
+      if (!r) return;
+      takeUndoSnapshot();
+      const today = getTodayStr();
+      r.status = 'sleeping';
+      r.lastCompletedAt = getNowIso();
+      r.nextDueDate = calcNextRoutineDate(r, today);
+      saveState();
+      renderAll();
+      showToast(`「${r.title}」を完了（スリープ移行）！次回予定日: ${r.nextDueDate}`);
+    }
+
+    function completeProjectHeadTask(taskId, newStatus) {
+      const t = state.tasks.find(x => x.id === taskId);
+      if (!t) return;
+      takeUndoSnapshot();
+      t.status = newStatus;
+      t.updatedAt = getNowIso();
+      saveState();
+      renderAll();
+      showToast(newStatus === 'done' ? `「${t.title}」を完了！次のタスクが繰り上がりました` : `「${t.title}」を見送りクローズしました`);
+    }
+
+    function renderTodayView() {
+      syncRoutinesByDate();
+      const today = getTodayStr();
+      const wdNames = ['日', '月', '火', '水', '木', '金', '土'];
+      const dObj = parseLocalDate(today);
+      document.getElementById('today-date-badge').textContent = `${today} (${wdNames[dObj.getDay()]})`;
+
+      // 1. 突発タスク（未完了全件）
+      const activeSpots = state.spotTasks.filter(s => s.status === 'todo');
+      document.getElementById('spot-count-badge').textContent = `${activeSpots.length}件`;
+      const spotListEl = document.getElementById('today-spot-list');
+      if (activeSpots.length === 0) {
+        spotListEl.innerHTML = `<div class="empty-state">未完了の突発タスクはありません。上の入力欄からいつでも追加できます。</div>`;
+      } else {
+        spotListEl.innerHTML = activeSpots.map(s => {
+          const dateLabel = s.createdAt ? s.createdAt.slice(0, 10) : today;
+          return `
+            <div class="task-card spot-card">
+              <div class="task-card-main">
+                <div class="task-card-meta">
+                  <span class="badge badge-warning">⚡ 突発</span>
+                  <span class="badge badge-neutral">${s.hours}h</span>
+                  <span style="font-size: 11px; color: var(--text-secondary);">登録: ${dateLabel}</span>
+                </div>
+                <div class="task-card-title">${escHtml(s.title)}</div>
+              </div>
+              <div class="task-card-actions">
+                <button class="btn btn-outline btn-sm" onclick="completeSpotTask('${s.id}', 'closed')">見送り</button>
+                <button class="btn btn-success btn-sm" onclick="completeSpotTask('${s.id}', 'done')">✓ 完了</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 2. 繰り返しタスク（todo または nextDueDate <= 本日）
+      const dueRoutines = state.routines.filter(r =>
+        r.status === 'todo' || (r.status === 'sleeping' && r.nextDueDate && r.nextDueDate <= today)
+      );
+      const sleepingCount = state.routines.filter(r => r.status === 'sleeping' && r.nextDueDate > today).length;
+
+      document.getElementById('routine-due-badge').textContent = `${dueRoutines.length}件`;
+      document.getElementById('routine-sleeping-info').textContent = `スリープ中: ${sleepingCount}件`;
+
+      const routineListEl = document.getElementById('today-routine-list');
+      if (dueRoutines.length === 0) {
+        routineListEl.innerHTML = `<div class="empty-state">今日実行すべき繰り返しタスクはありません。</div>`;
+      } else {
+        routineListEl.innerHTML = dueRoutines.map(r => {
+          const modeLabel = r.repeatType === 'interval' ? `完了から${r.repeatValue}日後` :
+                            r.repeatType === 'weekly' ? `毎週${wdNames[r.repeatValue]}曜` : `毎月${r.repeatValue}日`;
+          return `
+            <div class="task-card routine-card">
+              <div class="task-card-main">
+                <div class="task-card-meta">
+                  <span class="badge badge-success">🔁 繰り返し</span>
+                  <span class="badge badge-neutral">${r.hours}h</span>
+                  <span class="badge badge-neutral">${modeLabel}</span>
+                </div>
+                <div class="task-card-title">${escHtml(r.title)}</div>
+              </div>
+              <div class="task-card-actions">
+                <button class="btn btn-success btn-sm" onclick="completeRoutineToday('${r.id}')">✓ 完了（スリープへ）</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 3. プロジェクト別・先頭1件抽出（プロジェクト優先度順）
+      const activeProjects = state.projects
+        .filter(p => p.status === 'active')
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
+      const projectHeads = [];
+      activeProjects.forEach(p => {
+        const pTasks = state.tasks
+          .filter(t => t.projectId === p.id)
+          .sort((a, b) => a.order - b.order);
+        const todoTasks = pTasks.filter(t => t.status === 'todo');
+        if (todoTasks.length > 0) {
+          projectHeads.push({
+            project: p,
+            headTask: todoTasks[0],
+            remainingCount: todoTasks.length
+          });
+        }
+      });
+
+      document.getElementById('project-head-badge').textContent = `${projectHeads.length}件`;
+      const projListEl = document.getElementById('today-project-list');
+      if (projectHeads.length === 0) {
+        projListEl.innerHTML = `<div class="empty-state">進行中プロジェクトの未着手タスクはありません。</div>`;
+      } else {
+        projListEl.innerHTML = projectHeads.map(({ project, headTask, remainingCount }) => `
+          <div class="task-card project-card">
+            <div class="task-card-main">
+              <div class="task-card-meta">
+                <span class="badge badge-dark">優先 #${project.priority}</span>
+                <span class="badge badge-primary">📌 ${escHtml(project.name)}</span>
+                <span class="badge badge-neutral">${headTask.hours}h</span>
+                <span style="font-size: 11px; color: var(--text-secondary);">残り ${remainingCount} タスク</span>
+              </div>
+              <div class="task-card-title">${escHtml(headTask.title)}</div>
+              ${headTask.memo ? `<div class="task-card-note">📝 ${escHtml(headTask.memo)}</div>` : ''}
+            </div>
+            <div class="task-card-actions">
+              <button class="btn btn-outline btn-sm" onclick="openWbsForProject('${project.id}')">WBS</button>
+              <button class="btn btn-outline btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'closed')">見送り</button>
+              <button class="btn btn-primary btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'done')">✓ 完了</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const totalTodayCount = activeSpots.length + dueRoutines.length + projectHeads.length;
+      document.getElementById('badge-today-count').textContent = totalTodayCount;
+    }
+
+    // -------------------------------------------------------------------
+    // VIEW 2: プロジェクト見通し（動的シミュレーション・優先度変更）
+    // -------------------------------------------------------------------
+    function calcProjectForecast(project) {
+      const pTasks = state.tasks.filter(t => t.projectId === project.id && t.status !== 'closed');
+      const doneHours = pTasks.filter(t => t.status === 'done').reduce((sum, t) => sum + Number(t.hours), 0);
+      const remHours = pTasks.filter(t => t.status === 'todo').reduce((sum, t) => sum + Number(t.hours), 0);
+      const totalHours = doneHours + remHours;
+      const progressPct = totalHours > 0 ? Math.round((doneHours / totalHours) * 100) : 100;
+
+      const weekly = Number(project.weeklyHours) || 1;
+      const neededDays = remHours > 0 ? Math.ceil((remHours / weekly) * 7) : 0;
+      const today = getTodayStr();
+      const estimatedEndStr = addDaysStr(today, neededDays);
+
+      let isOverdue = false;
+      let diffDays = null;
+      if (project.deadline && remHours > 0) {
+        const estDate = parseLocalDate(estimatedEndStr);
+        const deadDate = parseLocalDate(project.deadline);
+        diffDays = Math.round((deadDate - estDate) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) isOverdue = true;
+      }
+
+      return {
+        doneHours,
+        remHours,
+        totalHours,
+        progressPct,
+        neededDays,
+        estimatedEndStr,
+        isOverdue,
+        diffDays,
+        remTaskCount: pTasks.filter(t => t.status === 'todo').length
+      };
+    }
+
+    function moveProjectPriority(projectId, direction) {
+      const sorted = [...state.projects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      const idx = sorted.findIndex(p => p.id === projectId);
+      if (idx === -1) return;
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= sorted.length) return;
+
+      takeUndoSnapshot();
+      const temp = sorted[idx].priority;
+      sorted[idx].priority = sorted[targetIdx].priority;
+      sorted[targetIdx].priority = temp;
+      // 連番に正規化
+      sorted.sort((a, b) => a.priority - b.priority).forEach((p, i) => {
+        p.priority = i + 1;
+      });
+      saveState();
+      renderAll();
+    }
+
+    function toggleProjectStatus(id) {
+      const p = state.projects.find(x => x.id === id);
+      if (!p) return;
+      takeUndoSnapshot();
+      p.status = p.status === 'active' ? 'closed' : 'active';
+      saveState();
+      renderAll();
+      showToast(p.status === 'closed' ? `「${p.name}」を一括クローズしました` : `「${p.name}」を再開しました`);
+    }
+
+    function openWbsForProject(projectId) {
+      selectedWbsProjectId = projectId;
+      switchTab('wbs');
+      switchWbsSubMode('wbs');
+    }
+
+    function renderForecastView() {
+      const showClosed = document.getElementById('toggle-closed-projects').checked;
+      const list = state.projects
+        .filter(p => showClosed || p.status === 'active')
+        .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      const container = document.getElementById('forecast-list');
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="empty-state">表示するプロジェクトがありません。「＋ 新規プロジェクト」から作成してください。</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map((p, idx) => {
+        const fc = calcProjectForecast(p);
+        let statusBadge = '';
+        if (p.status === 'closed') {
+          statusBadge = `<span class="badge badge-neutral">クローズ済</span>`;
+        } else if (fc.remHours === 0) {
+          statusBadge = `<span class="badge badge-success">全タスク完了</span>`;
+        } else if (fc.isOverdue) {
+          statusBadge = `<span class="badge badge-danger">⚠️ 期限超過見込み (${Math.abs(fc.diffDays)}日オーバー)</span>`;
+        } else if (p.deadline) {
+          statusBadge = `<span class="badge badge-success">✓ 順調 (余裕 ${fc.diffDays}日)</span>`;
+        } else {
+          statusBadge = `<span class="badge badge-primary">進行中</span>`;
+        }
+
+        return `
+          <div class="card" style="margin-bottom: 14px; ${p.status === 'closed' ? 'opacity: 0.65;' : ''}">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span class="badge badge-dark">優先 #${p.priority}</span>
+                <h2 style="font-size: 16px; font-weight: 700;">${escHtml(p.name)}</h2>
+                ${statusBadge}
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button class="btn btn-outline btn-xs" title="優先度を上げる" ${idx === 0 ? 'disabled' : ''} onclick="moveProjectPriority('${p.id}', -1)">↑ 優先</button>
+                <button class="btn btn-outline btn-xs" title="優先度を下げる" ${idx === list.length - 1 ? 'disabled' : ''} onclick="moveProjectPriority('${p.id}', 1)">↓</button>
+                <button class="btn btn-outline btn-xs" onclick="openEditProjectModal('${p.id}')">⚙️ 設定編集</button>
+                <button class="btn btn-secondary btn-xs" onclick="openWbsForProject('${p.id}')">📋 WBS管理</button>
+                <button class="btn btn-outline btn-xs" onclick="toggleProjectStatus('${p.id}')">
+                  ${p.status === 'active' ? '一括クローズ' : '再開'}
+                </button>
+              </div>
+            </div>
+
+            <div class="forecast-grid">
+              <div>
+                <div class="forecast-item-label">残工数 / 全体工数</div>
+                <div class="forecast-item-val">${fc.remHours.toFixed(1)}h <span style="font-size: 12px; font-weight: 400; color: var(--text-secondary);">/ ${fc.totalHours.toFixed(1)}h</span></div>
+              </div>
+              <div>
+                <div class="forecast-item-label">週間投入ペース</div>
+                <div class="forecast-item-val">${p.weeklyHours}h <span style="font-size: 12px; font-weight: 400; color: var(--text-secondary);">/ 週</span></div>
+              </div>
+              <div>
+                <div class="forecast-item-label">完了見込み日</div>
+                <div class="forecast-item-val" style="${fc.isOverdue ? 'color: var(--danger);' : ''}">
+                  ${fc.remHours === 0 ? '完了済み' : fc.estimatedEndStr}
+                </div>
+              </div>
+              <div>
+                <div class="forecast-item-label">目標期限</div>
+                <div class="forecast-item-val">${p.deadline || '未設定'}</div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                <span>進捗率: <strong>${fc.progressPct}%</strong> (残 ${fc.remTaskCount} タスク)</span>
+                <span>完了工数: ${fc.doneHours.toFixed(1)}h</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill ${fc.isOverdue ? 'overdue' : ''}" style="width: ${fc.progressPct}%;"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // -------------------------------------------------------------------
+    // VIEW 3: WBS・一括細分化 & 繰り返し管理
+    // -------------------------------------------------------------------
+    function onChangeWbsProject(id) {
+      selectedWbsProjectId = id;
+      selectedWbsTaskIds.clear();
+      renderWbsPanel();
+    }
+
+    function moveWbsTask(taskId, direction) {
+      const pTasks = state.tasks
+        .filter(t => t.projectId === selectedWbsProjectId)
+        .sort((a, b) => a.order - b.order);
+      const idx = pTasks.findIndex(t => t.id === taskId);
+      if (idx === -1) return;
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= pTasks.length) return;
+
+      takeUndoSnapshot();
+      const nowIso = getNowIso();
+      const tempOrder = pTasks[idx].order;
+      pTasks[idx].order = pTasks[targetIdx].order;
+      pTasks[targetIdx].order = tempOrder;
+      pTasks[idx].updatedAt = nowIso;
+      pTasks[targetIdx].updatedAt = nowIso;
+      saveState();
+      renderAll();
+    }
+
+    function completeUpToHere(taskId) {
+      const pTasks = state.tasks
+        .filter(t => t.projectId === selectedWbsProjectId)
+        .sort((a, b) => a.order - b.order);
+      const targetIdx = pTasks.findIndex(t => t.id === taskId);
+      if (targetIdx === -1) return;
+
+      takeUndoSnapshot();
+      const nowIso = getNowIso();
+      for (let i = 0; i <= targetIdx; i++) {
+        if (pTasks[i].status === 'todo') {
+          pTasks[i].status = 'done';
+          pTasks[i].updatedAt = nowIso;
+        }
+      }
+      saveState();
+      renderAll();
+      showToast('選択タスクまでを一括完了にしました');
+    }
+
+    function toggleWbsTaskSelection(taskId, checked) {
+      if (checked) selectedWbsTaskIds.add(taskId);
+      else selectedWbsTaskIds.delete(taskId);
+      updateWbsBulkBarUI();
+    }
+
+    function toggleSelectAllWbs(checked) {
+      const showInactive = document.getElementById('toggle-wbs-inactive').checked;
+      const visibleTasks = state.tasks.filter(t => t.projectId === selectedWbsProjectId && (showInactive || t.status === 'todo'));
+      selectedWbsTaskIds.clear();
+      if (checked) {
+        visibleTasks.forEach(t => selectedWbsTaskIds.add(t.id));
+      }
+      renderWbsPanel();
+    }
+
+    function updateWbsBulkBarUI() {
+      const count = selectedWbsTaskIds.size;
+      const badge = document.getElementById('wbs-selected-badge');
+      const btns = document.getElementById('wbs-bulk-btns');
+      if (count > 0) {
+        badge.textContent = `${count}件選択中`;
+        badge.classList.remove('hidden');
+        btns.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+        btns.classList.add('hidden');
+      }
+    }
+
+    function bulkUpdateWbsTasks(newStatus) {
+      if (selectedWbsTaskIds.size === 0) return;
+      takeUndoSnapshot();
+      const nowIso = getNowIso();
+      state.tasks.forEach(t => {
+        if (selectedWbsTaskIds.has(t.id)) {
+          t.status = newStatus;
+          t.updatedAt = nowIso;
+        }
+      });
+      const count = selectedWbsTaskIds.size;
+      selectedWbsTaskIds.clear();
+      saveState();
+      renderAll();
+      const label = newStatus === 'done' ? '一括完了' : newStatus === 'closed' ? '一括クローズ' : '未着手へ復元';
+      showToast(`${count}件のタスクを${label}しました`);
+    }
+
+    function renderWbsPanel() {
+      const selectEl = document.getElementById('wbs-project-select');
+      if (state.projects.length === 0) {
+        selectEl.innerHTML = `<option value="">プロジェクトがありません</option>`;
+        document.getElementById('wbs-project-meta').innerHTML = '';
+        document.getElementById('wbs-task-list').innerHTML = `<div class="empty-state">先にプロジェクトを作成してください。</div>`;
+        return;
+      }
+
+      const sortedProjects = [...state.projects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      if (!selectedWbsProjectId || !sortedProjects.some(p => p.id === selectedWbsProjectId)) {
+        const activeProj = sortedProjects.find(p => p.status === 'active') || sortedProjects[0];
+        selectedWbsProjectId = activeProj.id;
+      }
+
+      selectEl.innerHTML = sortedProjects.map(p =>
+        `<option value="${p.id}" ${p.id === selectedWbsProjectId ? 'selected' : ''}>[優先#${p.priority}] ${escHtml(p.name)} ${p.status === 'closed' ? '(クローズ済)' : ''}</option>`
+      ).join('');
+
+      const proj = sortedProjects.find(p => p.id === selectedWbsProjectId);
+      const fc = calcProjectForecast(proj);
+      document.getElementById('wbs-project-meta').innerHTML = `
+        <span>週間投入: <strong>${proj.weeklyHours}h/週</strong> ｜ 目標期限: <strong>${proj.deadline || 'なし'}</strong></span>
+        <span>残工数: <strong>${fc.remHours.toFixed(1)}h</strong> ｜ 完了見込み: <strong>${fc.remHours === 0 ? '完了' : fc.estimatedEndStr}</strong></span>
+      `;
+
+      const showInactive = document.getElementById('toggle-wbs-inactive').checked;
+      const allProjTasks = state.tasks
+        .filter(t => t.projectId === selectedWbsProjectId)
+        .sort((a, b) => a.order - b.order);
+
+      const firstTodoTask = allProjTasks.find(t => t.status === 'todo');
+      const visibleTasks = allProjTasks.filter(t => showInactive || t.status === 'todo');
+
+      document.getElementById('wbs-select-all').checked =
+        visibleTasks.length > 0 && visibleTasks.every(t => selectedWbsTaskIds.has(t.id));
+      updateWbsBulkBarUI();
+
+      const listEl = document.getElementById('wbs-task-list');
+      if (visibleTasks.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">表示するタスクがありません。「＋ テキスト一括追加」からタスクを追加できます。</div>`;
+        return;
+      }
+
+      listEl.innerHTML = visibleTasks.map((t, idx) => {
+        const isHead = firstTodoTask && firstTodoTask.id === t.id;
+        const isInactive = t.status !== 'todo';
+        const statusBadge = t.status === 'done'
+          ? `<span class="badge badge-success">✓ 完了</span>`
+          : t.status === 'closed'
+          ? `<span class="badge badge-danger">✕ 不要</span>`
+          : isHead
+          ? `<span class="badge badge-primary">⚡ 今日の先頭</span>`
+          : `<span class="badge badge-neutral">待機 #${idx + 1}</span>`;
+
+        return `
+          <div class="wbs-row ${isHead ? 'is-head' : ''} ${isInactive ? 'is-inactive' : ''}">
+            <div class="wbs-row-left">
+              <input type="checkbox" ${selectedWbsTaskIds.has(t.id) ? 'checked' : ''} onchange="toggleWbsTaskSelection('${t.id}', this.checked)" />
+              <div style="min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                  ${statusBadge}
+                  <span class="badge badge-neutral">${t.hours}h</span>
+                </div>
+                <div style="font-size: 14px; font-weight: 600; ${isInactive ? 'text-decoration: line-through;' : ''}">${escHtml(t.title)}</div>
+                ${t.memo ? `<div style="font-size: 11px; color: var(--text-secondary);">${escHtml(t.memo)}</div>` : ''}
+              </div>
+            </div>
+            <div class="wbs-row-right">
+              <button class="btn btn-outline btn-xs" title="上へ移動" onclick="moveWbsTask('${t.id}', -1)">↑</button>
+              <button class="btn btn-outline btn-xs" title="下へ移動" onclick="moveWbsTask('${t.id}', 1)">↓</button>
+              ${t.status === 'todo' ? `<button class="btn btn-secondary btn-xs" onclick="completeUpToHere('${t.id}')">ここまで完了</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 繰り返し管理パネル (F-04: スリープ即時呼び出し・停止/再開・削除対応)
+    function onChangeRoutineMode() {
+      const mode = document.getElementById('routine-mode').value;
+      document.getElementById('routine-param-interval').classList.toggle('hidden', mode !== 'interval');
+      document.getElementById('routine-param-weekly').classList.toggle('hidden', mode !== 'weekly');
+      document.getElementById('routine-param-monthly').classList.toggle('hidden', mode !== 'monthly');
+    }
+
+    function handleAddRoutine(e) {
+      e.preventDefault();
+      const title = document.getElementById('routine-title').value.trim();
+      const hours = parseFloat(document.getElementById('routine-hours').value) || 0.5;
+      const repeatType = document.getElementById('routine-mode').value;
+      let repeatValue = 7;
+      if (repeatType === 'interval') repeatValue = parseInt(document.getElementById('routine-interval-days').value, 10) || 7;
+      if (repeatType === 'weekly') repeatValue = parseInt(document.getElementById('routine-weekday').value, 10);
+      if (repeatType === 'monthly') repeatValue = parseInt(document.getElementById('routine-monthday').value, 10) || 1;
+      const startToday = document.getElementById('routine-start-today').checked;
+
+      if (!title) return;
+      takeUndoSnapshot();
+      const today = getTodayStr();
+      const newRoutine = {
+        id: uid('rtn'),
+        title,
+        hours,
+        repeatType,
+        repeatValue,
+        status: startToday ? 'todo' : 'sleeping',
+        nextDueDate: null,
+        lastCompletedAt: null
+      };
+      if (!startToday) {
+        newRoutine.nextDueDate = calcNextRoutineDate(newRoutine, today);
+      }
+
+      state.routines.unshift(newRoutine);
+      saveState();
+      document.getElementById('routine-title').value = '';
+      renderAll();
+      showToast(`繰り返しタスク「${title}」を登録しました`);
+    }
+
+    function wakeRoutineNow(id) {
+      const r = state.routines.find(x => x.id === id);
+      if (!r) return;
+      takeUndoSnapshot();
+      r.status = 'todo';
+      r.nextDueDate = getTodayStr();
+      saveState();
+      renderAll();
+      showToast(`「${r.title}」を今日の実行キューへ呼び出しました`);
+    }
+
+    function toggleRoutineStatus(id) {
+      const r = state.routines.find(x => x.id === id);
+      if (!r) return;
+      takeUndoSnapshot();
+      if (r.status === 'closed') {
+        r.status = 'todo';
+        r.nextDueDate = null;
+      } else {
+        r.status = 'closed';
+      }
+      saveState();
+      renderAll();
+      showToast(r.status === 'closed' ? `「${r.title}」をクローズしました` : `「${r.title}」を復活させました`);
+    }
+
+    function deleteRoutine(id) {
+      const r = state.routines.find(x => x.id === id);
+      if (!r) return;
+      takeUndoSnapshot();
+      state.routines = state.routines.filter(x => x.id !== id);
+      saveState();
+      renderAll();
+      showToast(`繰り返しタスク「${r.title}」を削除しました`);
+    }
+
+    function renderRoutinePanel() {
+      const showClosed = document.getElementById('toggle-closed-routines').checked;
+      const list = state.routines.filter(r => showClosed || r.status !== 'closed');
+      const wdNames = ['日', '月', '火', '水', '木', '金', '土'];
+      const container = document.getElementById('routine-manage-list');
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="empty-state">繰り返しタスクは登録されていません。</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(r => {
+        const modeLabel = r.repeatType === 'interval' ? `完了日から ${r.repeatValue} 日後` :
+                          r.repeatType === 'weekly' ? `毎週 ${wdNames[r.repeatValue]}曜日` : `毎月 ${r.repeatValue}日`;
+
+        return `
+          <div class="wbs-row ${r.status === 'closed' ? 'is-inactive' : ''}">
+            <div class="wbs-row-left">
+              <div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                  ${r.status === 'closed'
+                    ? `<span class="badge badge-neutral">クローズ済</span>`
+                    : r.status === 'todo'
+                    ? `<span class="badge badge-success">⚡ 今日出現中</span>`
+                    : `<span class="badge badge-primary">💤 スリープ中 (次回: ${r.nextDueDate})</span>`}
+                  <span class="badge badge-neutral">${r.hours}h</span>
+                  <span class="badge badge-neutral">${modeLabel}</span>
+                </div>
+                <div style="font-size: 14px; font-weight: 600;">${escHtml(r.title)}</div>
+              </div>
+            </div>
+            <div class="wbs-row-right">
+              ${r.status === 'sleeping' ? `<button class="btn btn-primary btn-xs" onclick="wakeRoutineNow('${r.id}')">⚡ 今すぐ呼び出す</button>` : ''}
+              <button class="btn btn-outline btn-xs" onclick="toggleRoutineStatus('${r.id}')">
+                ${r.status === 'closed' ? '復活する' : 'クローズ'}
+              </button>
+              <button class="btn btn-danger-soft btn-xs" onclick="deleteRoutine('${r.id}')">削除</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // -------------------------------------------------------------------
+    // VIEW 4: WBS一括インポート (F-02: 進行中プロジェクトへの差分追記)
+    // -------------------------------------------------------------------
+    const SAMPLE_CSV_TEXT = `プロジェクト名,タスク名,見積もり工数(h),週間投入時間(h),目標期限(YYYY-MM-DD),メモ
+Webアプリ開発,要件定義と画面設計,2,8,${addDaysStr(getTodayStr(), 30)},スマホ対応を優先
+Webアプリ開発,フロントエンド画面実装,5,,,HTML/CSS/JS構築
+Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
+英語TOEIC対策,公式問題集テスト1回分を解く,2.5,5,${addDaysStr(getTodayStr(), 45)},時間を計って実施
+英語TOEIC対策,リスニング復習とシャドーイング,3,,,毎日少しずつ進める`;
+
+    function fillSampleImportText() {
+      document.getElementById('import-raw-textarea').value = SAMPLE_CSV_TEXT;
+      parseImportPreview();
+    }
+
+    function downloadSampleCsv() {
+      downloadFile('sample_wbs_import.csv', '\uFEFF' + SAMPLE_CSV_TEXT, 'text/csv;charset=utf-8;');
+    }
+
+    function handleImportFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        document.getElementById('import-raw-textarea').value = ev.target.result;
+        parseImportPreview();
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    function splitCsvLine(line, delimiter) {
+      if (delimiter === '\t') return line.split('\t').map(s => s.trim());
+      const res = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+          res.push(cur.trim());
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      res.push(cur.trim());
+      return res;
+    }
+
+    function parseImportPreview() {
+      const raw = document.getElementById('import-raw-textarea').value.trim();
+      const container = document.getElementById('import-preview-container');
+      if (!raw) {
+        container.classList.add('hidden');
+        parsedImportRows = [];
+        return;
+      }
+
+      const lines = raw.split(/\r?\n/).filter(l => l.trim() !== '');
+      const delimiter = lines[0].includes('\t') ? '\t' : ',';
+      const rows = [];
+      const projMetaCache = {};
+
+      lines.forEach((line, index) => {
+        const cols = splitCsvLine(line, delimiter);
+        if (index === 0 && (cols[0].includes('プロジェクト') || cols[1]?.includes('タスク'))) {
+          return;
+        }
+        const projectName = cols[0] || '未分類プロジェクト';
+        const taskTitle = cols[1];
+        if (!taskTitle) return;
+
+        const hours = parseFloat(cols[2]) || 1.0;
+        if (!projMetaCache[projectName]) {
+          projMetaCache[projectName] = { weeklyHours: 5.0, deadline: '' };
+        }
+        if (cols[3] && !isNaN(parseFloat(cols[3]))) {
+          projMetaCache[projectName].weeklyHours = parseFloat(cols[3]);
+        }
+        if (cols[4] && /^\d{4}-\d{2}-\d{2}$/.test(cols[4])) {
+          projMetaCache[projectName].deadline = cols[4];
+        }
+        const memo = cols[5] || '';
+        // F-02: 同名の「進行中(active)」プロジェクトが存在する場合に追記判定
+        const existingActiveProj = state.projects.find(p => p.name === projectName && p.status === 'active');
+
+        rows.push({
+          isExisting: Boolean(existingActiveProj),
+          projectName,
+          taskTitle,
+          hours,
+          weeklyHours: projMetaCache[projectName].weeklyHours,
+          deadline: projMetaCache[projectName].deadline,
+          memo
+        });
+      });
+
+      parsedImportRows = rows;
+      if (rows.length === 0) {
+        container.classList.add('hidden');
+        return;
+      }
+
+      container.classList.remove('hidden');
+      const uniqueProjs = new Set(rows.map(r => r.projectName)).size;
+      document.getElementById('import-preview-summary').textContent =
+        `全 ${rows.length} タスク（対象プロジェクト: ${uniqueProjs}件）を取り込みます`;
+
+      document.getElementById('import-preview-tbody').innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.isExisting ? '<span class="badge badge-primary">進行中へ追記</span>' : '<span class="badge badge-success">新規作成</span>'}</td>
+          <td><strong>${escHtml(r.projectName)}</strong></td>
+          <td>${escHtml(r.taskTitle)}</td>
+          <td>${r.hours}h</td>
+          <td>${r.weeklyHours}h/週</td>
+          <td>${r.deadline || '-'}</td>
+          <td>${escHtml(r.memo)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function executeBulkImport() {
+      if (parsedImportRows.length === 0) return;
+      takeUndoSnapshot();
+      const nowIso = getNowIso();
+
+      parsedImportRows.forEach(row => {
+        // F-02: 同名の進行中プロジェクトのみ再利用し、なければ新規自動生成
+        let proj = state.projects.find(p => p.name === row.projectName && p.status === 'active');
+        if (!proj) {
+          const maxPriority = state.projects.reduce((m, p) => Math.max(m, p.priority || 0), 0);
+          proj = {
+            id: uid('proj'),
+            name: row.projectName,
+            priority: maxPriority + 1,
+            weeklyHours: row.weeklyHours,
+            deadline: row.deadline,
+            status: 'active'
+          };
+          state.projects.push(proj);
+        }
+
+        const projTasks = state.tasks.filter(t => t.projectId === proj.id);
+        const maxOrder = projTasks.reduce((m, t) => Math.max(m, t.order), 0);
+
+        state.tasks.push({
+          id: uid('task'),
+          projectId: proj.id,
+          title: row.taskTitle,
+          hours: row.hours,
+          memo: row.memo,
+          order: maxOrder + 1,
+          status: 'todo',
+          updatedAt: nowIso
+        });
+      });
+
+      const count = parsedImportRows.length;
+      document.getElementById('import-raw-textarea').value = '';
+      parsedImportRows = [];
+      document.getElementById('import-preview-container').classList.add('hidden');
+      saveState();
+      switchTab('today');
+      showToast(`${count}件のWBSタスクを一括インポートしました`);
+    }
+
+    // -------------------------------------------------------------------
+    // モーダル操作（プロジェクト作成/編集、テキスト一括追加、データ管理）
+    // -------------------------------------------------------------------
+    function openNewProjectModal() {
+      document.getElementById('modal-project-title').textContent = '新規プロジェクト作成';
+      document.getElementById('proj-edit-id').value = '';
+      document.getElementById('proj-name').value = '';
+      document.getElementById('proj-weekly-hours').value = '5';
+      document.getElementById('proj-deadline').value = '';
+      document.getElementById('proj-initial-tasks').value = '';
+      document.getElementById('proj-initial-tasks-group').classList.remove('hidden');
+      openModal('modal-project');
+    }
+
+    function openEditProjectModal(id) {
+      const p = state.projects.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('modal-project-title').textContent = 'プロジェクト設定の編集';
+      document.getElementById('proj-edit-id').value = p.id;
+      document.getElementById('proj-name').value = p.name;
+      document.getElementById('proj-weekly-hours').value = p.weeklyHours;
+      document.getElementById('proj-deadline').value = p.deadline || '';
+      document.getElementById('proj-initial-tasks-group').classList.add('hidden');
+      openModal('modal-project');
+    }
+
+    function parseTaskLine(line) {
+      const parts = line.split(/[,，\t]/).map(s => s.trim());
+      const title = parts[0];
+      const hours = parts[1] && !isNaN(parseFloat(parts[1])) ? parseFloat(parts[1]) : 1.0;
+      return { title, hours };
+    }
+
+    function handleSaveProject(e) {
+      e.preventDefault();
+      const editId = document.getElementById('proj-edit-id').value;
+      const name = document.getElementById('proj-name').value.trim();
+      const weeklyHours = parseFloat(document.getElementById('proj-weekly-hours').value) || 5.0;
+      const deadline = document.getElementById('proj-deadline').value;
+
+      if (!name) return;
+      takeUndoSnapshot();
+
+      if (editId) {
+        const p = state.projects.find(x => x.id === editId);
+        if (p) {
+          p.name = name;
+          p.weeklyHours = weeklyHours;
+          p.deadline = deadline;
+        }
+        saveState();
+        closeModal('modal-project');
+        renderAll();
+        showToast(`プロジェクト「${name}」を更新しました`);
+      } else {
+        const newProjId = uid('proj');
+        const maxPriority = state.projects.reduce((m, p) => Math.max(m, p.priority || 0), 0);
+        const nowIso = getNowIso();
+        state.projects.push({
+          id: newProjId,
+          name,
+          priority: maxPriority + 1,
+          weeklyHours,
+          deadline,
+          status: 'active'
+        });
+
+        const rawLines = document.getElementById('proj-initial-tasks').value
+          .split(/\r?\n/)
+          .map(l => l.trim())
+          .filter(Boolean);
+
+        rawLines.forEach((line, idx) => {
+          const { title, hours } = parseTaskLine(line);
+          if (title) {
+            state.tasks.push({
+              id: uid('task'),
+              projectId: newProjId,
+              title,
+              hours,
+              memo: '',
+              order: idx + 1,
+              status: 'todo',
+              updatedAt: nowIso
+            });
+          }
+        });
+
+        selectedWbsProjectId = newProjId;
+        saveState();
+        closeModal('modal-project');
+        renderAll();
+        showToast(`プロジェクト「${name}」を作成しました`);
+      }
+    }
+
+    function openBulkAddModal() {
+      if (!selectedWbsProjectId) return;
+      document.getElementById('bulk-add-textarea').value = '';
+      openModal('modal-bulk-add');
+    }
+
+    function handleBulkAddSubmit(e) {
+      e.preventDefault();
+      if (!selectedWbsProjectId) return;
+      const pos = document.getElementById('bulk-add-position').value;
+      const lines = document.getElementById('bulk-add-textarea').value
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      if (lines.length === 0) return;
+      takeUndoSnapshot();
+      const nowIso = getNowIso();
+
+      const projTasks = state.tasks.filter(t => t.projectId === selectedWbsProjectId);
+      if (pos === 'top') {
+        const minOrder = projTasks.reduce((m, t) => Math.min(m, t.order), 1);
+        lines.forEach((line, i) => {
+          const { title, hours } = parseTaskLine(line);
+          state.tasks.push({
+            id: uid('task'),
+            projectId: selectedWbsProjectId,
+            title,
+            hours,
+            memo: '',
+            order: minOrder - lines.length + i,
+            status: 'todo',
+            updatedAt: nowIso
+          });
+        });
+      } else {
+        const maxOrder = projTasks.reduce((m, t) => Math.max(m, t.order), 0);
+        lines.forEach((line, i) => {
+          const { title, hours } = parseTaskLine(line);
+          state.tasks.push({
+            id: uid('task'),
+            projectId: selectedWbsProjectId,
+            title,
+            hours,
+            memo: '',
+            order: maxOrder + i + 1,
+            status: 'todo',
+            updatedAt: nowIso
+          });
+        });
+      }
+
+      saveState();
+      closeModal('modal-bulk-add');
+      renderAll();
+      showToast(`${lines.length}件のタスクを追加しました`);
+    }
+
+    // -------------------------------------------------------------------
+    // データエクスポート・インポート（v1.0後方互換）・リセット
+    // -------------------------------------------------------------------
+    function downloadFile(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportJsonBackup() {
+      state.version = '1.1';
+      const filename = `queueflow_v1.1_backup_${getTodayStr()}.json`;
+      downloadFile(filename, JSON.stringify(state, null, 2), 'application/json');
+      showToast('v1.1 JSONバックアップを保存しました', false);
+    }
+
+    function exportAllCsv() {
+      const lines = ['種別,プロジェクト名,タスク名,工数(h),ステータス,メモ'];
+      state.spotTasks.forEach(s => {
+        lines.push(`突発,-,"${s.title.replace(/"/g, '""')}",${s.hours},${s.status},`);
+      });
+      state.routines.forEach(r => {
+        lines.push(`繰り返し,-,"${r.title.replace(/"/g, '""')}",${r.hours},${r.status},"次回:${r.nextDueDate || '今日'}"`);
+      });
+      state.tasks.forEach(t => {
+        const p = state.projects.find(x => x.id === t.projectId);
+        const pName = p ? p.name : '不明';
+        lines.push(`プロジェクト,"${pName.replace(/"/g, '""')}","${t.title.replace(/"/g, '""')}",${t.hours},${t.status},"${(t.memo || '').replace(/"/g, '""')}"`);
+      });
+      downloadFile(`queueflow_tasks_${getTodayStr()}.csv`, '\uFEFF' + lines.join('\n'), 'text/csv;charset=utf-8;');
+      showToast('全タスクCSVを出力しました', false);
+    }
+
+    function importJsonBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (!parsed.projects || !parsed.tasks) throw new Error('Invalid format');
+          takeUndoSnapshot();
+          const wasLegacy = parsed.version !== '1.1';
+          state = migrateToV1_1(parsed);
+          syncRoutinesByDate();
+          saveState();
+          closeModal('modal-data');
+          renderAll();
+          showToast(wasLegacy ? 'v1.0データをv1.1へ自動変換して復元しました' : 'JSONバックアップから復元しました');
+        } catch (err) {
+          showToast('JSONファイルの形式が正しくありません', false, true);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    function confirmResetAll(makeEmpty) {
+      const msg = makeEmpty
+        ? 'すべてのデータを削除して空の状態にしますか？'
+        : '現在のデータを上書きしてデモデータを再読込しますか？';
+      if (!confirm(msg)) return;
+      takeUndoSnapshot();
+      if (makeEmpty) {
+        state = { version: '1.1', projects: [], tasks: [], spotTasks: [], routines: [] };
+        saveState();
+      } else {
+        loadDemoData();
+      }
+      selectedWbsProjectId = null;
+      selectedWbsTaskIds.clear();
+      closeModal('modal-data');
+      renderAll();
+      showToast(makeEmpty ? '全データを空にしました' : 'デモデータを再読込しました');
+    }
+
+    // -------------------------------------------------------------------
+    // 全体再描画・初期化
+    // -------------------------------------------------------------------
+    function renderAll() {
+      renderTodayView();
+      renderForecastView();
+      renderWbsPanel();
+      renderRoutinePanel();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
