@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QueueFlow v1.1 - 統合タスクキュー＆動的プロジェクト見通し管理</title>
+  <title>QueueFlow v1.2 - 統合タスクキュー＆動的プロジェクト見通し管理</title>
   <style>
     :root {
       --bg-body: #f8fafc;
@@ -19,6 +19,10 @@
       --primary-hover: #4338ca;
       --primary-soft: #eef2ff;
       --primary-border: #c7d2fe;
+
+      --info: #0284c7;
+      --info-soft: #f0f9ff;
+      --info-border: #bae6fd;
 
       --success: #059669;
       --success-hover: #047857;
@@ -322,6 +326,7 @@
       white-space: nowrap;
     }
     .badge-primary { background: var(--primary-soft); color: var(--primary); border: 1px solid var(--primary-border); }
+    .badge-info { background: var(--info-soft); color: var(--info); border: 1px solid var(--info-border); }
     .badge-success { background: var(--success-soft); color: var(--success); border: 1px solid var(--success-border); }
     .badge-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-border); }
     .badge-warning { background: var(--warning-soft); color: var(--warning); border: 1px solid var(--warning-border); }
@@ -348,7 +353,7 @@
       margin-top: 2px;
     }
 
-    /* クイック突発追加バー */
+    /* クイック追加バー（突発・日付固定切替） */
     .quick-spot-bar {
       background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
       border: 1px solid var(--primary-border);
@@ -363,11 +368,18 @@
       gap: 8px;
       align-items: center;
     }
+    .quick-spot-type {
+      width: 155px;
+      font-weight: 600;
+    }
+    .quick-spot-date {
+      width: 150px;
+    }
     .quick-spot-title {
-      flex: 1 1 240px;
+      flex: 1 1 220px;
     }
     .quick-spot-hours {
-      width: 96px;
+      width: 86px;
     }
 
     /* キューグループ */
@@ -376,8 +388,10 @@
     }
     .queue-block-header {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
       margin-bottom: 10px;
       padding-bottom: 6px;
       border-bottom: 1px solid var(--border-color);
@@ -410,6 +424,9 @@
     }
     .task-card.spot-card {
       border-left: 4px solid var(--warning);
+    }
+    .task-card.scheduled-card {
+      border-left: 4px solid var(--info);
     }
     .task-card.routine-card {
       border-left: 4px solid var(--success);
@@ -656,8 +673,13 @@
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
-    @media (max-width: 500px) {
-      .form-grid-2 { grid-template-columns: 1fr; }
+    .form-grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 540px) {
+      .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
     }
 
     /* トースト通知 */
@@ -709,10 +731,18 @@
       background: var(--bg-card);
       border: 1px dashed var(--border-strong);
       border-radius: var(--radius-lg);
-      padding: 32px 20px;
+      padding: 26px 20px;
       text-align: center;
       color: var(--text-secondary);
       font-size: 13px;
+    }
+
+    .upcoming-panel {
+      margin-top: 10px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
     }
 
     .hidden { display: none !important; }
@@ -728,9 +758,9 @@
         <div>
           <div class="brand-title">
             <span>QueueFlow</span>
-            <span class="version-badge">v1.1</span>
+            <span class="version-badge">v1.2</span>
           </div>
-          <div class="brand-sub">先頭抽出型タスクキュー ＆ 動的プロジェクト見通し管理</div>
+          <div class="brand-sub">先頭抽出型タスクキュー ＆ 動的優先度・プロジェクト見通し管理</div>
         </div>
       </div>
       <div class="header-actions">
@@ -770,21 +800,26 @@
       <div class="section-header">
         <div>
           <h1 class="section-title">今日の実行キュー</h1>
-          <p class="section-desc">突発タスク・本日の繰り返しタスク・各プロジェクトの「先頭1件」のみを抽出しています。</p>
+          <p class="section-desc">突発・本日到来の日付固定・繰り返し・各プロジェクトの「先頭1件（動的優先度順）」を表示します。</p>
         </div>
         <div class="badge badge-neutral" id="today-date-badge" style="font-size: 12px; padding: 5px 10px;"></div>
       </div>
 
-      <!-- 突発・単発タスク クイック追加バー -->
+      <!-- クイック追加バー（突発タスク ＆ 日付固定タスク対応） -->
       <div class="quick-spot-bar">
         <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
-          ⚡ 突発・単発タスクを即座にキューへ追加（Enterキーで連続登録）
+          ⚡ 突発タスク ＆ 📅 日付固定タスクをクイック登録
         </div>
-        <form class="quick-spot-form" onsubmit="handleQuickSpotAdd(event)">
-          <input type="text" id="spot-input-title" class="input quick-spot-title" placeholder="例：電球を買いに行く、〇〇さんに返信する、役所へ書類提出..." required />
+        <form class="quick-spot-form" onsubmit="handleQuickTaskAdd(event)">
+          <select id="quick-task-type" class="select quick-spot-type" onchange="onChangeQuickTaskType()">
+            <option value="spot">⚡ 突発（今日すぐ）</option>
+            <option value="scheduled">📅 日付固定（指定日）</option>
+          </select>
+          <input type="date" id="quick-task-date" class="input quick-spot-date hidden" title="実行指定日" />
+          <input type="text" id="spot-input-title" class="input quick-spot-title" placeholder="例：電球を買う、〇月〇日に請求書を送付する..." required />
           <input type="number" id="spot-input-hours" class="input quick-spot-hours" step="0.25" min="0.1" max="50" value="0.5" title="見積もり工数(時間)" />
           <span style="font-size: 12px; color: var(--text-secondary);">時間</span>
-          <button type="submit" class="btn btn-primary">＋ 突発追加</button>
+          <button type="submit" class="btn btn-primary">＋ 追加</button>
         </form>
       </div>
 
@@ -800,7 +835,23 @@
         <div id="today-spot-list"></div>
       </div>
 
-      <!-- セクションB: 今日の繰り返しタスク (Routines) -->
+      <!-- セクションB: 日付固定タスク (Scheduled) -->
+      <div class="queue-block">
+        <div class="queue-block-header">
+          <div class="queue-block-title">
+            <span>📅 日付固定タスク (Scheduled)</span>
+            <span id="scheduled-due-badge" class="badge badge-info">0件</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="scheduled-upcoming-info" style="font-size: 12px; color: var(--text-secondary);">指定日待ち: 0件</span>
+            <button type="button" id="btn-toggle-upcoming" class="btn btn-outline btn-xs" onclick="toggleUpcomingScheduled()">待機一覧を表示</button>
+          </div>
+        </div>
+        <div id="today-scheduled-list"></div>
+        <div id="upcoming-scheduled-panel" class="upcoming-panel hidden"></div>
+      </div>
+
+      <!-- セクションC: 今日の繰り返しタスク (Routines) -->
       <div class="queue-block">
         <div class="queue-block-header">
           <div class="queue-block-title">
@@ -815,14 +866,14 @@
         <div id="today-routine-list"></div>
       </div>
 
-      <!-- セクションC: プロジェクト別・先頭キュー (Project Heads) -->
+      <!-- セクションD: プロジェクト別・先頭キュー (Project Heads - 動的優先度スコア順) -->
       <div class="queue-block">
         <div class="queue-block-header">
           <div class="queue-block-title">
             <span>📌 プロジェクト別・先頭キュー (Project Heads)</span>
             <span id="project-head-badge" class="badge badge-primary">0件</span>
           </div>
-          <span style="font-size: 11px; color: var(--text-secondary);">優先度順に表示・完了で次が自動繰り上がり</span>
+          <span style="font-size: 11px; color: var(--text-secondary);">優先度スコア（基本値×100＋期限余裕日）が小さい順</span>
         </div>
         <div id="today-project-list"></div>
       </div>
@@ -834,8 +885,8 @@
     <section id="view-forecast" class="view-section">
       <div class="section-header">
         <div>
-          <h1 class="section-title">プロジェクト見通し（動的シミュレーション）</h1>
-          <p class="section-desc">残工数と週間投入時間から完了見込み日を自動算出。タスクごとのリスケ作業は不要です。</p>
+          <h1 class="section-title">プロジェクト見通し（動的優先度・完了日シミュレーション）</h1>
+          <p class="section-desc">最終優先度 ＝ (基本優先度 × 100) ＋ 期限余裕日数。数値が小さいプロジェクトほど実行キュー上位に自動配置されます。</p>
         </div>
         <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer;">
           <input type="checkbox" id="toggle-closed-projects" onchange="renderAll()" />
@@ -868,7 +919,7 @@
         <div class="card" style="margin-bottom: 14px;">
           <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px;">
             <div style="flex: 1 1 280px;">
-              <label class="form-label" for="wbs-project-select">対象プロジェクト選択</label>
+              <label class="form-label" for="wbs-project-select">対象プロジェクト選択（動的優先度順）</label>
               <select id="wbs-project-select" class="select" onchange="onChangeWbsProject(this.value)"></select>
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
@@ -928,12 +979,11 @@
               </div>
             </div>
 
-            <!-- 方式ごとの詳細パラメータ -->
             <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; background: var(--bg-body); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
               <div id="routine-param-interval" style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 13px; font-weight: 600;">完了した日の</span>
                 <input type="number" id="routine-interval-days" class="input" style="width: 80px;" min="1" max="365" value="7" />
-                <span style="font-size: 13px; font-weight: 600;">日後に再出現（遅れても赤字にならない間隔方式）</span>
+                <span style="font-size: 13px; font-weight: 600;">日後に再出現</span>
               </div>
 
               <div id="routine-param-weekly" class="hidden" style="display: flex; align-items: center; gap: 8px;">
@@ -996,8 +1046,8 @@
       <div class="card" style="margin-bottom: 16px;">
         <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.6;">
           <strong>対応列フォーマット（カンマ区切りCSV または Excel/スプレッドシートからのタブ区切りペースト）：</strong><br />
-          <code style="background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; color: var(--text-main);">プロジェクト名, タスク名, 見積もり工数(h), 週間投入時間(h), 目標期限(YYYY-MM-DD), メモ</code><br />
-          ※ 1行目のヘッダー行は自動判定してスキップします。同名の「進行中」プロジェクトがあれば末尾へ差分追記します。
+          <code style="background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; color: var(--text-main);">プロジェクト名, タスク名, 見積もり工数(h), 週間投入時間(h), 目標期限(YYYY-MM-DD), メモ, 基本優先度(数値)</code><br />
+          ※ 7列目の「基本優先度」は省略可能です（省略時は既存プロジェクトの次の連番が自動設定されます）。
         </div>
 
         <div style="margin-bottom: 12px;">
@@ -1026,6 +1076,7 @@
               <tr>
                 <th>登録先判定</th>
                 <th>プロジェクト名</th>
+                <th>基本優先度</th>
                 <th>タスク名</th>
                 <th>工数</th>
                 <th>週投入</th>
@@ -1038,11 +1089,11 @@
         </div>
       </div>
 
-      <!-- データ保全・バックアップカード（ビュー4からも直接操作可能に配置） -->
+      <!-- データ保全・バックアップカード -->
       <div class="card">
         <h2 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">💾 データバックアップ・端末間移行</h2>
         <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-          v1.1 スキーマ（JSON形式）での完全バックアップ・復元、および確認用CSV出力が行えます。v1.0形式のJSON復元時も自動マイグレーションされます。
+          v1.2 スキーマ（JSON形式）での完全バックアップ・復元、および確認用CSV出力が行えます。v1.0/v1.1形式のJSON復元時も自動マイグレーションされます。
         </p>
         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
           <button class="btn btn-primary btn-sm" onclick="exportJsonBackup()">📥 JSONバックアップ保存</button>
@@ -1073,15 +1124,22 @@
           <label class="form-label">プロジェクト名 *</label>
           <input type="text" id="proj-name" class="input" placeholder="例：資格試験の合格、Webアプリ開発、引っ越し準備" required />
         </div>
-        <div class="form-grid-2">
+        <div class="form-grid-3">
           <div class="form-group">
-            <label class="form-label">週間投入時間 (時間/週) *</label>
+            <label class="form-label">基本優先度 (数字) *</label>
+            <input type="number" id="proj-priority" class="input" step="1" min="1" max="99" value="1" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">週間投入時間 (h/週) *</label>
             <input type="number" id="proj-weekly-hours" class="input" step="0.5" min="0.5" max="100" value="5" required />
           </div>
           <div class="form-group">
             <label class="form-label">目標期限 (任意)</label>
             <input type="date" id="proj-deadline" class="input" />
           </div>
+        </div>
+        <div style="font-size: 11px; color: var(--text-secondary); background: var(--bg-subtle); padding: 8px 10px; border-radius: 6px; margin-bottom: 14px;">
+          💡 最終優先度 ＝ <strong>(基本優先度 × 100) ＋ 期限余裕日数</strong> で自動算出されます（例：優先度1・余裕5日 → 105）。値が小さいほどキュー上位に表示されます。
         </div>
         <div class="form-group" id="proj-initial-tasks-group">
           <label class="form-label">初期WBSタスク（1行1タスク・任意）</label>
@@ -1139,7 +1197,7 @@
       </div>
 
       <div class="form-group" style="padding-top: 12px; border-top: 1px solid var(--border-color);">
-        <label class="form-label">2. JSONバックアップから復元（上書き・v1.0自動変換対応）</label>
+        <label class="form-label">2. JSONバックアップから復元（上書き・自動マイグレーション対応）</label>
         <label class="btn btn-outline" style="width: 100%; cursor: pointer;">
           <span>📂 JSONファイルを選択して復元 (.json)</span>
           <input type="file" accept=".json" onchange="importJsonBackup(event)" style="display: none;" />
@@ -1157,23 +1215,25 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- ===================================================================
-       APPLICATION LOGIC (JavaScript - Baseline v1.1 Spec)
+       APPLICATION LOGIC (JavaScript - v1.2)
        =================================================================== -->
   <script>
     const STORAGE_KEY = 'queueflow_state_v1';
     const LEGACY_STORAGE_KEYS = ['nextqueue_app_state_v1', 'queueflow_v1', 'queueflow_data'];
 
-    // 要件定義書 セクション3: v1.1 スキーマ準拠
+    // v1.2 スキーマ（scheduledTasks を追加）
     let state = {
-      version: '1.1',
-      projects: [],   // { id, name, priority, weeklyHours, deadline, status: 'active'|'closed' }
-      tasks: [],      // { id, projectId, title, hours, memo, order, status: 'todo'|'done'|'closed', updatedAt }
-      spotTasks: [],  // { id, title, hours, status: 'todo'|'done'|'closed', createdAt }
-      routines: []    // { id, title, hours, repeatType: 'interval'|'weekly'|'monthly', repeatValue, status: 'todo'|'sleeping'|'closed', nextDueDate, lastCompletedAt }
+      version: '1.2',
+      projects: [],       // { id, name, priority, weeklyHours, deadline, status: 'active'|'closed' }
+      tasks: [],          // { id, projectId, title, hours, memo, order, status: 'todo'|'done'|'closed', updatedAt }
+      spotTasks: [],      // { id, title, hours, status: 'todo'|'done'|'closed', createdAt }
+      scheduledTasks: [], // { id, title, hours, scheduledDate: 'YYYY-MM-DD', status: 'todo'|'done'|'closed', createdAt }
+      routines: []        // { id, title, hours, repeatType: 'interval'|'weekly'|'monthly', repeatValue, status: 'todo'|'sleeping'|'closed', nextDueDate, lastCompletedAt }
     };
 
     let selectedWbsProjectId = null;
     let selectedWbsTaskIds = new Set();
+    let showUpcomingScheduled = false;
     let undoSnapshot = null;
     let parsedImportRows = [];
 
@@ -1249,16 +1309,62 @@
     }
 
     // -------------------------------------------------------------------
-    // v1.0 -> v1.1 自動マイグレーション＆ストレージ管理
+    // プロジェクト完了見込み＆動的優先度スコア計算
+    // 最終優先度 = (基本優先度 * 100) + 期限余裕日数
     // -------------------------------------------------------------------
-    function migrateToV1_1(rawObj) {
+    function calcProjectForecast(project) {
+      const pTasks = state.tasks.filter(t => t.projectId === project.id && t.status !== 'closed');
+      const doneHours = pTasks.filter(t => t.status === 'done').reduce((sum, t) => sum + Number(t.hours), 0);
+      const remHours = pTasks.filter(t => t.status === 'todo').reduce((sum, t) => sum + Number(t.hours), 0);
+      const totalHours = doneHours + remHours;
+      const progressPct = totalHours > 0 ? Math.round((doneHours / totalHours) * 100) : 100;
+
+      const weekly = Number(project.weeklyHours) || 1;
+      const neededDays = remHours > 0 ? Math.ceil((remHours / weekly) * 7) : 0;
+      const today = getTodayStr();
+      const estimatedEndStr = addDaysStr(today, neededDays);
+
+      let isOverdue = false;
+      let diffDays = null;
+      if (project.deadline) {
+        const estDate = parseLocalDate(estimatedEndStr);
+        const deadDate = parseLocalDate(project.deadline);
+        diffDays = Math.round((deadDate - estDate) / (1000 * 60 * 60 * 24));
+        if (remHours > 0 && diffDays < 0) isOverdue = true;
+      }
+
+      const basePriority = Number(project.priority) || 1;
+      const baseScore = basePriority * 100;
+      const marginDays = diffDays !== null ? diffDays : 0;
+      const dynamicPriorityScore = baseScore + marginDays;
+
+      return {
+        doneHours,
+        remHours,
+        totalHours,
+        progressPct,
+        neededDays,
+        estimatedEndStr,
+        isOverdue,
+        diffDays,
+        basePriority,
+        baseScore,
+        marginDays,
+        dynamicPriorityScore,
+        remTaskCount: pTasks.filter(t => t.status === 'todo').length
+      };
+    }
+
+    // -------------------------------------------------------------------
+    // v1.0 / v1.1 -> v1.2 自動マイグレーション＆ストレージ管理
+    // -------------------------------------------------------------------
+    function migrateToLatest(rawObj) {
       if (!rawObj || typeof rawObj !== 'object') return null;
 
-      // 既に v1.1 スキーマの場合も欠損フィールドを正規化
       const projects = (rawObj.projects || []).map((p, idx) => ({
         id: p.id || uid('proj'),
         name: p.name || '名称未設定プロジェクト',
-        priority: typeof p.priority === 'number' ? p.priority : idx + 1,
+        priority: typeof p.priority === 'number' && !isNaN(p.priority) ? p.priority : idx + 1,
         weeklyHours: Number(p.weeklyHours) || 5.0,
         deadline: p.deadline || '',
         status: p.status === 'closed' ? 'closed' : 'active'
@@ -1275,7 +1381,6 @@
         updatedAt: t.updatedAt || getNowIso()
       }));
 
-      // v1.0の spots 配列または v1.1の spotTasks 配列を統合
       const rawSpots = rawObj.spotTasks || rawObj.spots || [];
       const spotTasks = rawSpots.map(s => ({
         id: s.id || uid('spot'),
@@ -1287,7 +1392,15 @@
           : `${s.createdAt || getTodayStr()}T00:00:00Z`
       }));
 
-      // v1.0の routines 構造から v1.1 構造へ変換
+      const scheduledTasks = (rawObj.scheduledTasks || []).map(sc => ({
+        id: sc.id || uid('sched'),
+        title: sc.title || '日付固定タスク',
+        hours: Number(sc.hours) || 0.5,
+        scheduledDate: sc.scheduledDate || getTodayStr(),
+        status: ['todo', 'done', 'closed'].includes(sc.status) ? sc.status : 'todo',
+        createdAt: sc.createdAt || getNowIso()
+      }));
+
       const today = getTodayStr();
       const routines = (rawObj.routines || []).map(r => {
         const repeatType = r.repeatType || r.mode || 'interval';
@@ -1318,15 +1431,15 @@
       });
 
       return {
-        version: '1.1',
+        version: '1.2',
         projects,
         tasks,
         spotTasks,
+        scheduledTasks,
         routines
       };
     }
 
-    // 日付経過による sleeping -> todo 自動復帰チェック
     function syncRoutinesByDate() {
       const today = getTodayStr();
       let changed = false;
@@ -1340,16 +1453,14 @@
     }
 
     function saveState() {
-      state.version = '1.1';
+      state.version = '1.2';
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
     function loadState() {
-      // 1. 現行キーを確認
       let raw = localStorage.getItem(STORAGE_KEY);
       let migratedFromLegacy = false;
 
-      // 2. 旧バージョン（v1.0等）のキーが存在すれば自動移行
       if (!raw) {
         for (const legacyKey of LEGACY_STORAGE_KEYS) {
           const legacyRaw = localStorage.getItem(legacyKey);
@@ -1364,14 +1475,14 @@
       if (raw) {
         try {
           const parsed = JSON.parse(raw);
-          const isOldVersion = parsed.version !== '1.1' || migratedFromLegacy;
-          const converted = migrateToV1_1(parsed);
+          const isOldVersion = parsed.version !== '1.2' || migratedFromLegacy;
+          const converted = migrateToLatest(parsed);
           if (converted) {
             state = converted;
             syncRoutinesByDate();
             saveState();
             if (isOldVersion) {
-              setTimeout(() => showToast('既存データを v1.1 形式へ自動マイグレーションしました', false), 300);
+              setTimeout(() => showToast('既存データを v1.2 形式へ自動マイグレーションしました', false), 300);
             }
             return;
           }
@@ -1390,7 +1501,7 @@
       const p2 = uid('proj');
 
       state = {
-        version: '1.1',
+        version: '1.2',
         projects: [
           {
             id: p1,
@@ -1403,9 +1514,9 @@
           {
             id: p2,
             name: '確定申告・経費整理',
-            priority: 2,
+            priority: 1,
             weeklyHours: 4.0,
-            deadline: addDaysStr(today, 14),
+            deadline: addDaysStr(today, 10),
             status: 'active'
           }
         ],
@@ -1418,6 +1529,10 @@
         ],
         spotTasks: [
           { id: uid('spot'), title: '郵便局で不在票の荷物を受け取る', hours: 0.5, status: 'todo', createdAt: nowIso }
+        ],
+        scheduledTasks: [
+          { id: uid('sched'), title: '月次クライアント請求書を発行・送付する', hours: 0.5, scheduledDate: today, status: 'todo', createdAt: nowIso },
+          { id: uid('sched'), title: '粗大ごみ収集シールの購入と搬出', hours: 0.5, scheduledDate: addDaysStr(today, 3), status: 'todo', createdAt: nowIso }
         ],
         routines: [
           { id: uid('rtn'), title: 'デスク周りのリセット・週次レビュー', hours: 0.5, repeatType: 'weekly', repeatValue: 6, status: 'todo', nextDueDate: null, lastCompletedAt: null },
@@ -1493,29 +1608,66 @@
     }
 
     // -------------------------------------------------------------------
-    // VIEW 1: 今日の実行キュー ロジック (F-03, F-04, F-05)
+    // VIEW 1: 今日の実行キュー ロジック（突発・日付固定・繰り返し・プロジェクト）
     // -------------------------------------------------------------------
-    function handleQuickSpotAdd(e) {
+    function onChangeQuickTaskType() {
+      const type = document.getElementById('quick-task-type').value;
+      const dateInput = document.getElementById('quick-task-date');
+      if (type === 'scheduled') {
+        dateInput.classList.remove('hidden');
+        if (!dateInput.value) dateInput.value = getTodayStr();
+      } else {
+        dateInput.classList.add('hidden');
+      }
+    }
+
+    function handleQuickTaskAdd(e) {
       e.preventDefault();
+      const type = document.getElementById('quick-task-type').value;
       const titleEl = document.getElementById('spot-input-title');
       const hoursEl = document.getElementById('spot-input-hours');
+      const dateEl = document.getElementById('quick-task-date');
+
       const title = titleEl.value.trim();
       const hours = parseFloat(hoursEl.value) || 0.5;
       if (!title) return;
 
       takeUndoSnapshot();
-      state.spotTasks.unshift({
-        id: uid('spot'),
-        title,
-        hours,
-        status: 'todo',
-        createdAt: getNowIso()
-      });
-      saveState();
-      titleEl.value = '';
-      titleEl.focus();
-      renderAll();
-      showToast(`突発タスク「${title}」を追加しました`);
+
+      if (type === 'scheduled') {
+        const scheduledDate = dateEl.value || getTodayStr();
+        state.scheduledTasks.push({
+          id: uid('sched'),
+          title,
+          hours,
+          scheduledDate,
+          status: 'todo',
+          createdAt: getNowIso()
+        });
+        saveState();
+        titleEl.value = '';
+        titleEl.focus();
+        renderAll();
+        const isTodayOrPast = scheduledDate <= getTodayStr();
+        showToast(
+          isTodayOrPast
+            ? `日付固定タスク「${title}」を今日のキューに追加しました`
+            : `日付固定タスク「${title}」を ${scheduledDate} 予定で登録しました`
+        );
+      } else {
+        state.spotTasks.unshift({
+          id: uid('spot'),
+          title,
+          hours,
+          status: 'todo',
+          createdAt: getNowIso()
+        });
+        saveState();
+        titleEl.value = '';
+        titleEl.focus();
+        renderAll();
+        showToast(`突発タスク「${title}」を追加しました`);
+      }
     }
 
     function completeSpotTask(id, newStatus) {
@@ -1526,6 +1678,41 @@
       saveState();
       renderAll();
       showToast(newStatus === 'done' ? `「${item.title}」を完了しました` : `「${item.title}」を見送りました`);
+    }
+
+    function completeScheduledTask(id, newStatus) {
+      const item = state.scheduledTasks.find(s => s.id === id);
+      if (!item) return;
+      takeUndoSnapshot();
+      item.status = newStatus;
+      saveState();
+      renderAll();
+      showToast(newStatus === 'done' ? `日付固定タスク「${item.title}」を完了しました` : `「${item.title}」を見送りました`);
+    }
+
+    function moveScheduledToToday(id) {
+      const item = state.scheduledTasks.find(s => s.id === id);
+      if (!item) return;
+      takeUndoSnapshot();
+      item.scheduledDate = getTodayStr();
+      saveState();
+      renderAll();
+      showToast(`「${item.title}」を今日のキューへ前倒ししました`);
+    }
+
+    function deleteScheduledTask(id) {
+      const item = state.scheduledTasks.find(s => s.id === id);
+      if (!item) return;
+      takeUndoSnapshot();
+      state.scheduledTasks = state.scheduledTasks.filter(s => s.id !== id);
+      saveState();
+      renderAll();
+      showToast(`日付固定タスク「${item.title}」を削除しました`);
+    }
+
+    function toggleUpcomingScheduled() {
+      showUpcomingScheduled = !showUpcomingScheduled;
+      renderTodayView();
     }
 
     function completeRoutineToday(id) {
@@ -1587,7 +1774,76 @@
         }).join('');
       }
 
-      // 2. 繰り返しタスク（todo または nextDueDate <= 本日）
+      // 2. 日付固定タスク（scheduledDate <= 本日）
+      const dueScheduled = state.scheduledTasks
+        .filter(s => s.status === 'todo' && s.scheduledDate <= today)
+        .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+      const upcomingScheduled = state.scheduledTasks
+        .filter(s => s.status === 'todo' && s.scheduledDate > today)
+        .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+
+      document.getElementById('scheduled-due-badge').textContent = `${dueScheduled.length}件`;
+      document.getElementById('scheduled-upcoming-info').textContent = `指定日待ち: ${upcomingScheduled.length}件`;
+      const toggleUpBtn = document.getElementById('btn-toggle-upcoming');
+      toggleUpBtn.textContent = showUpcomingScheduled ? '待機一覧を閉じる' : '待機一覧を表示';
+
+      const schedListEl = document.getElementById('today-scheduled-list');
+      if (dueScheduled.length === 0) {
+        schedListEl.innerHTML = `<div class="empty-state">本日実行すべき日付固定タスクはありません。</div>`;
+      } else {
+        schedListEl.innerHTML = dueScheduled.map(s => {
+          const isOver = s.scheduledDate < today;
+          return `
+            <div class="task-card scheduled-card">
+              <div class="task-card-main">
+                <div class="task-card-meta">
+                  <span class="badge badge-info">📅 日付固定</span>
+                  <span class="badge ${isOver ? 'badge-danger' : 'badge-neutral'}">指定日: ${s.scheduledDate}${isOver ? ' (超過)' : ''}</span>
+                  <span class="badge badge-neutral">${s.hours}h</span>
+                </div>
+                <div class="task-card-title">${escHtml(s.title)}</div>
+              </div>
+              <div class="task-card-actions">
+                <button class="btn btn-outline btn-sm" onclick="completeScheduledTask('${s.id}', 'closed')">見送り</button>
+                <button class="btn btn-success btn-sm" onclick="completeScheduledTask('${s.id}', 'done')">✓ 完了</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const upcomingPanel = document.getElementById('upcoming-scheduled-panel');
+      if (showUpcomingScheduled) {
+        upcomingPanel.classList.remove('hidden');
+        if (upcomingScheduled.length === 0) {
+          upcomingPanel.innerHTML = `<div style="font-size: 12px; color: var(--text-secondary); text-align: center;">指定日待ちの日付固定タスクはありません。</div>`;
+        } else {
+          upcomingPanel.innerHTML = `
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">⏳ 指定日待ちの日付固定タスク一覧</div>
+            ${upcomingScheduled.map(s => `
+              <div class="wbs-row" style="margin-bottom: 6px;">
+                <div class="wbs-row-left">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                      <span class="badge badge-info">📅 ${s.scheduledDate}</span>
+                      <span class="badge badge-neutral">${s.hours}h</span>
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600;">${escHtml(s.title)}</div>
+                  </div>
+                </div>
+                <div class="wbs-row-right">
+                  <button class="btn btn-primary btn-xs" onclick="moveScheduledToToday('${s.id}')">⚡ 今日へ前倒し</button>
+                  <button class="btn btn-danger-soft btn-xs" onclick="deleteScheduledTask('${s.id}')">削除</button>
+                </div>
+              </div>
+            `).join('')}
+          `;
+        }
+      } else {
+        upcomingPanel.classList.add('hidden');
+      }
+
+      // 3. 繰り返しタスク（todo または nextDueDate <= 本日）
       const dueRoutines = state.routines.filter(r =>
         r.status === 'todo' || (r.status === 'sleeping' && r.nextDueDate && r.nextDueDate <= today)
       );
@@ -1621,20 +1877,22 @@
         }).join('');
       }
 
-      // 3. プロジェクト別・先頭1件抽出（プロジェクト優先度順）
-      const activeProjects = state.projects
+      // 4. プロジェクト別・先頭1件抽出（動的優先度スコア昇順）
+      const activeProjectsWithForecast = state.projects
         .filter(p => p.status === 'active')
-        .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+        .map(p => ({ project: p, forecast: calcProjectForecast(p) }))
+        .sort((a, b) => a.forecast.dynamicPriorityScore - b.forecast.dynamicPriorityScore);
 
       const projectHeads = [];
-      activeProjects.forEach(p => {
+      activeProjectsWithForecast.forEach(({ project, forecast }) => {
         const pTasks = state.tasks
-          .filter(t => t.projectId === p.id)
+          .filter(t => t.projectId === project.id)
           .sort((a, b) => a.order - b.order);
         const todoTasks = pTasks.filter(t => t.status === 'todo');
         if (todoTasks.length > 0) {
           projectHeads.push({
-            project: p,
+            project,
+            forecast,
             headTask: todoTasks[0],
             remainingCount: todoTasks.length
           });
@@ -1646,87 +1904,37 @@
       if (projectHeads.length === 0) {
         projListEl.innerHTML = `<div class="empty-state">進行中プロジェクトの未着手タスクはありません。</div>`;
       } else {
-        projListEl.innerHTML = projectHeads.map(({ project, headTask, remainingCount }) => `
-          <div class="task-card project-card">
-            <div class="task-card-main">
-              <div class="task-card-meta">
-                <span class="badge badge-dark">優先 #${project.priority}</span>
-                <span class="badge badge-primary">📌 ${escHtml(project.name)}</span>
-                <span class="badge badge-neutral">${headTask.hours}h</span>
-                <span style="font-size: 11px; color: var(--text-secondary);">残り ${remainingCount} タスク</span>
+        projListEl.innerHTML = projectHeads.map(({ project, forecast, headTask, remainingCount }) => {
+          const marginLabel = forecast.diffDays !== null ? `余裕${forecast.diffDays}日` : '期限なし';
+          return `
+            <div class="task-card project-card">
+              <div class="task-card-main">
+                <div class="task-card-meta">
+                  <span class="badge badge-dark" title="基本優先度(${forecast.basePriority})×100 + 期限余裕(${marginLabel})">スコア ${forecast.dynamicPriorityScore}</span>
+                  <span class="badge badge-primary">📌 ${escHtml(project.name)}</span>
+                  <span class="badge badge-neutral">${headTask.hours}h</span>
+                  <span style="font-size: 11px; color: var(--text-secondary);">残り ${remainingCount} タスク</span>
+                </div>
+                <div class="task-card-title">${escHtml(headTask.title)}</div>
+                ${headTask.memo ? `<div class="task-card-note">📝 ${escHtml(headTask.memo)}</div>` : ''}
               </div>
-              <div class="task-card-title">${escHtml(headTask.title)}</div>
-              ${headTask.memo ? `<div class="task-card-note">📝 ${escHtml(headTask.memo)}</div>` : ''}
+              <div class="task-card-actions">
+                <button class="btn btn-outline btn-sm" onclick="openWbsForProject('${project.id}')">WBS</button>
+                <button class="btn btn-outline btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'closed')">見送り</button>
+                <button class="btn btn-primary btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'done')">✓ 完了</button>
+              </div>
             </div>
-            <div class="task-card-actions">
-              <button class="btn btn-outline btn-sm" onclick="openWbsForProject('${project.id}')">WBS</button>
-              <button class="btn btn-outline btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'closed')">見送り</button>
-              <button class="btn btn-primary btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'done')">✓ 完了</button>
-            </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
 
-      const totalTodayCount = activeSpots.length + dueRoutines.length + projectHeads.length;
+      const totalTodayCount = activeSpots.length + dueScheduled.length + dueRoutines.length + projectHeads.length;
       document.getElementById('badge-today-count').textContent = totalTodayCount;
     }
 
     // -------------------------------------------------------------------
-    // VIEW 2: プロジェクト見通し（動的シミュレーション・優先度変更）
+    // VIEW 2: プロジェクト見通し（動的シミュレーション・自動優先度スコア表示）
     // -------------------------------------------------------------------
-    function calcProjectForecast(project) {
-      const pTasks = state.tasks.filter(t => t.projectId === project.id && t.status !== 'closed');
-      const doneHours = pTasks.filter(t => t.status === 'done').reduce((sum, t) => sum + Number(t.hours), 0);
-      const remHours = pTasks.filter(t => t.status === 'todo').reduce((sum, t) => sum + Number(t.hours), 0);
-      const totalHours = doneHours + remHours;
-      const progressPct = totalHours > 0 ? Math.round((doneHours / totalHours) * 100) : 100;
-
-      const weekly = Number(project.weeklyHours) || 1;
-      const neededDays = remHours > 0 ? Math.ceil((remHours / weekly) * 7) : 0;
-      const today = getTodayStr();
-      const estimatedEndStr = addDaysStr(today, neededDays);
-
-      let isOverdue = false;
-      let diffDays = null;
-      if (project.deadline && remHours > 0) {
-        const estDate = parseLocalDate(estimatedEndStr);
-        const deadDate = parseLocalDate(project.deadline);
-        diffDays = Math.round((deadDate - estDate) / (1000 * 60 * 60 * 24));
-        if (diffDays < 0) isOverdue = true;
-      }
-
-      return {
-        doneHours,
-        remHours,
-        totalHours,
-        progressPct,
-        neededDays,
-        estimatedEndStr,
-        isOverdue,
-        diffDays,
-        remTaskCount: pTasks.filter(t => t.status === 'todo').length
-      };
-    }
-
-    function moveProjectPriority(projectId, direction) {
-      const sorted = [...state.projects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
-      const idx = sorted.findIndex(p => p.id === projectId);
-      if (idx === -1) return;
-      const targetIdx = idx + direction;
-      if (targetIdx < 0 || targetIdx >= sorted.length) return;
-
-      takeUndoSnapshot();
-      const temp = sorted[idx].priority;
-      sorted[idx].priority = sorted[targetIdx].priority;
-      sorted[targetIdx].priority = temp;
-      // 連番に正規化
-      sorted.sort((a, b) => a.priority - b.priority).forEach((p, i) => {
-        p.priority = i + 1;
-      });
-      saveState();
-      renderAll();
-    }
-
     function toggleProjectStatus(id) {
       const p = state.projects.find(x => x.id === id);
       if (!p) return;
@@ -1747,7 +1955,9 @@
       const showClosed = document.getElementById('toggle-closed-projects').checked;
       const list = state.projects
         .filter(p => showClosed || p.status === 'active')
-        .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+        .map(p => ({ project: p, fc: calcProjectForecast(p) }))
+        .sort((a, b) => a.fc.dynamicPriorityScore - b.fc.dynamicPriorityScore);
+
       const container = document.getElementById('forecast-list');
 
       if (list.length === 0) {
@@ -1755,8 +1965,7 @@
         return;
       }
 
-      container.innerHTML = list.map((p, idx) => {
-        const fc = calcProjectForecast(p);
+      container.innerHTML = list.map(({ project: p, fc }, rankIdx) => {
         let statusBadge = '';
         if (p.status === 'closed') {
           statusBadge = `<span class="badge badge-neutral">クローズ済</span>`;
@@ -1770,18 +1979,22 @@
           statusBadge = `<span class="badge badge-primary">進行中</span>`;
         }
 
+        const marginSign = fc.marginDays >= 0 ? `+${fc.marginDays}` : `${fc.marginDays}`;
+        const formulaText = p.deadline
+          ? `基本${fc.basePriority}×100 (${fc.baseScore}) ${marginSign}日 = ${fc.dynamicPriorityScore}`
+          : `基本${fc.basePriority}×100 (${fc.baseScore}) + 期限未設定(0) = ${fc.dynamicPriorityScore}`;
+
         return `
           <div class="card" style="margin-bottom: 14px; ${p.status === 'closed' ? 'opacity: 0.65;' : ''}">
             <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
               <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span class="badge badge-dark">優先 #${p.priority}</span>
+                <span class="badge badge-dark">表示順 #${rankIdx + 1} (スコア: ${fc.dynamicPriorityScore})</span>
+                <span class="badge badge-neutral" title="最終優先度の算出式">${formulaText}</span>
                 <h2 style="font-size: 16px; font-weight: 700;">${escHtml(p.name)}</h2>
                 ${statusBadge}
               </div>
               <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <button class="btn btn-outline btn-xs" title="優先度を上げる" ${idx === 0 ? 'disabled' : ''} onclick="moveProjectPriority('${p.id}', -1)">↑ 優先</button>
-                <button class="btn btn-outline btn-xs" title="優先度を下げる" ${idx === list.length - 1 ? 'disabled' : ''} onclick="moveProjectPriority('${p.id}', 1)">↓</button>
-                <button class="btn btn-outline btn-xs" onclick="openEditProjectModal('${p.id}')">⚙️ 設定編集</button>
+                <button class="btn btn-outline btn-xs" onclick="openEditProjectModal('${p.id}')">⚙️ 基本優先度・設定編集</button>
                 <button class="btn btn-secondary btn-xs" onclick="openWbsForProject('${p.id}')">📋 WBS管理</button>
                 <button class="btn btn-outline btn-xs" onclick="toggleProjectStatus('${p.id}')">
                   ${p.status === 'active' ? '一括クローズ' : '再開'}
@@ -1805,8 +2018,10 @@
                 </div>
               </div>
               <div>
-                <div class="forecast-item-label">目標期限</div>
-                <div class="forecast-item-val">${p.deadline || '未設定'}</div>
+                <div class="forecast-item-label">目標期限 (余裕日数)</div>
+                <div class="forecast-item-val">
+                  ${p.deadline ? `${p.deadline} <span style="font-size: 12px; font-weight: 600; color: ${fc.isOverdue ? 'var(--danger)' : 'var(--success)'};">(${fc.diffDays >= 0 ? '+' : ''}${fc.diffDays}日)</span>` : '未設定'}
+                </div>
               </div>
             </div>
 
@@ -1930,20 +2145,24 @@
         return;
       }
 
-      const sortedProjects = [...state.projects].sort((a, b) => (a.priority || 999) - (b.priority || 999));
-      if (!selectedWbsProjectId || !sortedProjects.some(p => p.id === selectedWbsProjectId)) {
-        const activeProj = sortedProjects.find(p => p.status === 'active') || sortedProjects[0];
-        selectedWbsProjectId = activeProj.id;
+      const sortedProjects = [...state.projects]
+        .map(p => ({ p, fc: calcProjectForecast(p) }))
+        .sort((a, b) => a.fc.dynamicPriorityScore - b.fc.dynamicPriorityScore);
+
+      if (!selectedWbsProjectId || !sortedProjects.some(item => item.p.id === selectedWbsProjectId)) {
+        const activeProj = sortedProjects.find(item => item.p.status === 'active') || sortedProjects[0];
+        selectedWbsProjectId = activeProj.p.id;
       }
 
-      selectEl.innerHTML = sortedProjects.map(p =>
-        `<option value="${p.id}" ${p.id === selectedWbsProjectId ? 'selected' : ''}>[優先#${p.priority}] ${escHtml(p.name)} ${p.status === 'closed' ? '(クローズ済)' : ''}</option>`
+      selectEl.innerHTML = sortedProjects.map(({ p, fc }) =>
+        `<option value="${p.id}" ${p.id === selectedWbsProjectId ? 'selected' : ''}>[スコア:${fc.dynamicPriorityScore} / 基本:${fc.basePriority}] ${escHtml(p.name)} ${p.status === 'closed' ? '(クローズ済)' : ''}</option>`
       ).join('');
 
-      const proj = sortedProjects.find(p => p.id === selectedWbsProjectId);
-      const fc = calcProjectForecast(proj);
+      const currentItem = sortedProjects.find(item => item.p.id === selectedWbsProjectId);
+      const proj = currentItem.p;
+      const fc = currentItem.fc;
       document.getElementById('wbs-project-meta').innerHTML = `
-        <span>週間投入: <strong>${proj.weeklyHours}h/週</strong> ｜ 目標期限: <strong>${proj.deadline || 'なし'}</strong></span>
+        <span>基本優先度: <strong>${fc.basePriority}</strong> (最終スコア: <strong>${fc.dynamicPriorityScore}</strong>) ｜ 週間投入: <strong>${proj.weeklyHours}h/週</strong> ｜ 目標期限: <strong>${proj.deadline || 'なし'}</strong></span>
         <span>残工数: <strong>${fc.remHours.toFixed(1)}h</strong> ｜ 完了見込み: <strong>${fc.remHours === 0 ? '完了' : fc.estimatedEndStr}</strong></span>
       `;
 
@@ -1999,7 +2218,7 @@
       }).join('');
     }
 
-    // 繰り返し管理パネル (F-04: スリープ即時呼び出し・停止/再開・削除対応)
+    // 繰り返し管理パネル
     function onChangeRoutineMode() {
       const mode = document.getElementById('routine-mode').value;
       document.getElementById('routine-param-interval').classList.toggle('hidden', mode !== 'interval');
@@ -2122,14 +2341,14 @@
     }
 
     // -------------------------------------------------------------------
-    // VIEW 4: WBS一括インポート (F-02: 進行中プロジェクトへの差分追記)
+    // VIEW 4: WBS一括インポート
     // -------------------------------------------------------------------
-    const SAMPLE_CSV_TEXT = `プロジェクト名,タスク名,見積もり工数(h),週間投入時間(h),目標期限(YYYY-MM-DD),メモ
-Webアプリ開発,要件定義と画面設計,2,8,${addDaysStr(getTodayStr(), 30)},スマホ対応を優先
-Webアプリ開発,フロントエンド画面実装,5,,,HTML/CSS/JS構築
-Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
-英語TOEIC対策,公式問題集テスト1回分を解く,2.5,5,${addDaysStr(getTodayStr(), 45)},時間を計って実施
-英語TOEIC対策,リスニング復習とシャドーイング,3,,,毎日少しずつ進める`;
+    const SAMPLE_CSV_TEXT = `プロジェクト名,タスク名,見積もり工数(h),週間投入時間(h),目標期限(YYYY-MM-DD),メモ,基本優先度
+Webアプリ開発,要件定義と画面設計,2,8,${addDaysStr(getTodayStr(), 30)},スマホ対応を優先,1
+Webアプリ開発,フロントエンド画面実装,5,,,HTML/CSS/JS構築,1
+Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認,1
+英語TOEIC対策,公式問題集テスト1回分を解く,2.5,5,${addDaysStr(getTodayStr(), 45)},時間を計って実施,2
+英語TOEIC対策,リスニング復習とシャドーイング,3,,,毎日少しずつ進める,2`;
 
     function fillSampleImportText() {
       document.getElementById('import-raw-textarea').value = SAMPLE_CSV_TEXT;
@@ -2185,6 +2404,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
       const delimiter = lines[0].includes('\t') ? '\t' : ',';
       const rows = [];
       const projMetaCache = {};
+      let nextAutoPriority = state.projects.reduce((m, p) => Math.max(m, p.priority || 0), 0) + 1;
 
       lines.forEach((line, index) => {
         const cols = splitCsvLine(line, delimiter);
@@ -2197,7 +2417,11 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
 
         const hours = parseFloat(cols[2]) || 1.0;
         if (!projMetaCache[projectName]) {
-          projMetaCache[projectName] = { weeklyHours: 5.0, deadline: '' };
+          projMetaCache[projectName] = {
+            weeklyHours: 5.0,
+            deadline: '',
+            priority: nextAutoPriority++
+          };
         }
         if (cols[3] && !isNaN(parseFloat(cols[3]))) {
           projMetaCache[projectName].weeklyHours = parseFloat(cols[3]);
@@ -2206,12 +2430,16 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
           projMetaCache[projectName].deadline = cols[4];
         }
         const memo = cols[5] || '';
-        // F-02: 同名の「進行中(active)」プロジェクトが存在する場合に追記判定
+        if (cols[6] && !isNaN(parseInt(cols[6], 10))) {
+          projMetaCache[projectName].priority = parseInt(cols[6], 10);
+        }
+
         const existingActiveProj = state.projects.find(p => p.name === projectName && p.status === 'active');
 
         rows.push({
           isExisting: Boolean(existingActiveProj),
           projectName,
+          priority: existingActiveProj ? existingActiveProj.priority : projMetaCache[projectName].priority,
           taskTitle,
           hours,
           weeklyHours: projMetaCache[projectName].weeklyHours,
@@ -2235,6 +2463,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
         <tr>
           <td>${r.isExisting ? '<span class="badge badge-primary">進行中へ追記</span>' : '<span class="badge badge-success">新規作成</span>'}</td>
           <td><strong>${escHtml(r.projectName)}</strong></td>
+          <td><span class="badge badge-dark">${r.priority}</span></td>
           <td>${escHtml(r.taskTitle)}</td>
           <td>${r.hours}h</td>
           <td>${r.weeklyHours}h/週</td>
@@ -2250,14 +2479,12 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
       const nowIso = getNowIso();
 
       parsedImportRows.forEach(row => {
-        // F-02: 同名の進行中プロジェクトのみ再利用し、なければ新規自動生成
         let proj = state.projects.find(p => p.name === row.projectName && p.status === 'active');
         if (!proj) {
-          const maxPriority = state.projects.reduce((m, p) => Math.max(m, p.priority || 0), 0);
           proj = {
             id: uid('proj'),
             name: row.projectName,
-            priority: maxPriority + 1,
+            priority: Number(row.priority) || 1,
             weeklyHours: row.weeklyHours,
             deadline: row.deadline,
             status: 'active'
@@ -2296,6 +2523,8 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
       document.getElementById('modal-project-title').textContent = '新規プロジェクト作成';
       document.getElementById('proj-edit-id').value = '';
       document.getElementById('proj-name').value = '';
+      const nextPrio = state.projects.filter(p => p.status === 'active').length + 1;
+      document.getElementById('proj-priority').value = nextPrio;
       document.getElementById('proj-weekly-hours').value = '5';
       document.getElementById('proj-deadline').value = '';
       document.getElementById('proj-initial-tasks').value = '';
@@ -2309,6 +2538,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
       document.getElementById('modal-project-title').textContent = 'プロジェクト設定の編集';
       document.getElementById('proj-edit-id').value = p.id;
       document.getElementById('proj-name').value = p.name;
+      document.getElementById('proj-priority').value = p.priority || 1;
       document.getElementById('proj-weekly-hours').value = p.weeklyHours;
       document.getElementById('proj-deadline').value = p.deadline || '';
       document.getElementById('proj-initial-tasks-group').classList.add('hidden');
@@ -2326,6 +2556,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
       e.preventDefault();
       const editId = document.getElementById('proj-edit-id').value;
       const name = document.getElementById('proj-name').value.trim();
+      const priority = parseInt(document.getElementById('proj-priority').value, 10) || 1;
       const weeklyHours = parseFloat(document.getElementById('proj-weekly-hours').value) || 5.0;
       const deadline = document.getElementById('proj-deadline').value;
 
@@ -2336,6 +2567,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
         const p = state.projects.find(x => x.id === editId);
         if (p) {
           p.name = name;
+          p.priority = priority;
           p.weeklyHours = weeklyHours;
           p.deadline = deadline;
         }
@@ -2345,12 +2577,11 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
         showToast(`プロジェクト「${name}」を更新しました`);
       } else {
         const newProjId = uid('proj');
-        const maxPriority = state.projects.reduce((m, p) => Math.max(m, p.priority || 0), 0);
         const nowIso = getNowIso();
         state.projects.push({
           id: newProjId,
           name,
-          priority: maxPriority + 1,
+          priority,
           weeklyHours,
           deadline,
           status: 'active'
@@ -2444,7 +2675,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
     }
 
     // -------------------------------------------------------------------
-    // データエクスポート・インポート（v1.0後方互換）・リセット
+    // データエクスポート・インポート（後方互換マイグレーション）・リセット
     // -------------------------------------------------------------------
     function downloadFile(filename, content, mimeType) {
       const blob = new Blob([content], { type: mimeType });
@@ -2459,16 +2690,19 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
     }
 
     function exportJsonBackup() {
-      state.version = '1.1';
-      const filename = `queueflow_v1.1_backup_${getTodayStr()}.json`;
+      state.version = '1.2';
+      const filename = `queueflow_v1.2_backup_${getTodayStr()}.json`;
       downloadFile(filename, JSON.stringify(state, null, 2), 'application/json');
-      showToast('v1.1 JSONバックアップを保存しました', false);
+      showToast('v1.2 JSONバックアップを保存しました', false);
     }
 
     function exportAllCsv() {
-      const lines = ['種別,プロジェクト名,タスク名,工数(h),ステータス,メモ'];
+      const lines = ['種別,プロジェクト名,タスク名,工数(h),ステータス,日付・メモ'];
       state.spotTasks.forEach(s => {
         lines.push(`突発,-,"${s.title.replace(/"/g, '""')}",${s.hours},${s.status},`);
+      });
+      state.scheduledTasks.forEach(sc => {
+        lines.push(`日付固定,-,"${sc.title.replace(/"/g, '""')}",${sc.hours},${sc.status},"指定日:${sc.scheduledDate}"`);
       });
       state.routines.forEach(r => {
         lines.push(`繰り返し,-,"${r.title.replace(/"/g, '""')}",${r.hours},${r.status},"次回:${r.nextDueDate || '今日'}"`);
@@ -2491,13 +2725,13 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
           const parsed = JSON.parse(ev.target.result);
           if (!parsed.projects || !parsed.tasks) throw new Error('Invalid format');
           takeUndoSnapshot();
-          const wasLegacy = parsed.version !== '1.1';
-          state = migrateToV1_1(parsed);
+          const wasLegacy = parsed.version !== '1.2';
+          state = migrateToLatest(parsed);
           syncRoutinesByDate();
           saveState();
           closeModal('modal-data');
           renderAll();
-          showToast(wasLegacy ? 'v1.0データをv1.1へ自動変換して復元しました' : 'JSONバックアップから復元しました');
+          showToast(wasLegacy ? '旧バージョンのデータをv1.2へ自動変換して復元しました' : 'JSONバックアップから復元しました');
         } catch (err) {
           showToast('JSONファイルの形式が正しくありません', false, true);
         }
@@ -2513,7 +2747,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認
       if (!confirm(msg)) return;
       takeUndoSnapshot();
       if (makeEmpty) {
-        state = { version: '1.1', projects: [], tasks: [], spotTasks: [], routines: [] };
+        state = { version: '1.2', projects: [], tasks: [], spotTasks: [], scheduledTasks: [], routines: [] };
         saveState();
       } else {
         loadDemoData();
