@@ -873,7 +873,10 @@
             <span>📌 プロジェクト別・先頭キュー (Project Heads)</span>
             <span id="project-head-badge" class="badge badge-primary">0件</span>
           </div>
-          <span style="font-size: 11px; color: var(--text-secondary);">優先度スコア（基本値×100＋期限余裕日）が小さい順</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="project-sleeping-info" class="hidden" style="font-size: 12px; color: var(--text-secondary);"></span>
+            <span style="font-size: 11px; color: var(--text-secondary);">優先度スコア（基本値×100＋期限余裕日）が小さい順</span>
+          </div>
         </div>
         <div id="today-project-list"></div>
       </div>
@@ -1138,6 +1141,16 @@
             <input type="date" id="proj-deadline" class="input" />
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label" for="proj-resume-at">スリープ解除・再開日時 (任意)</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="datetime-local" id="proj-resume-at" class="input" />
+            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('proj-resume-at').value = ''">クリア</button>
+          </div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+            ※ 未来の日時を指定すると、その日時を過ぎるまで「今日の実行キュー」に表示されなくなります。
+          </div>
+        </div>
         <div style="font-size: 11px; color: var(--text-secondary); background: var(--bg-subtle); padding: 8px 10px; border-radius: 6px; margin-bottom: 14px;">
           💡 最終優先度 ＝ <strong>(基本優先度 × 100) ＋ 期限余裕日数</strong> で自動算出されます（例：優先度1・余裕5日 → 105）。値が小さいほどキュー上位に表示されます。
         </div>
@@ -1224,7 +1237,7 @@
     // v1.2 スキーマ（scheduledTasks を追加）
     let state = {
       version: '1.2',
-      projects: [],       // { id, name, priority, weeklyHours, deadline, status: 'active'|'closed' }
+      projects: [],       // { id, name, priority, weeklyHours, deadline, resumeAt, status: 'active'|'closed' }
       tasks: [],          // { id, projectId, title, hours, memo, order, status: 'todo'|'done'|'closed', updatedAt }
       spotTasks: [],      // { id, title, hours, status: 'todo'|'done'|'closed', createdAt }
       scheduledTasks: [], // { id, title, hours, scheduledDate: 'YYYY-MM-DD', status: 'todo'|'done'|'closed', createdAt }
@@ -1242,6 +1255,14 @@
     // -------------------------------------------------------------------
     function getTodayStr() {
       return formatDate(new Date());
+    }
+
+    function getNowLocalDateTimeStr() {
+      const d = new Date();
+      const datePart = formatDate(d);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${datePart}T${hh}:${mm}`;
     }
 
     function getNowIso() {
@@ -1367,6 +1388,7 @@
         priority: typeof p.priority === 'number' && !isNaN(p.priority) ? p.priority : idx + 1,
         weeklyHours: Number(p.weeklyHours) || 5.0,
         deadline: p.deadline || '',
+        resumeAt: p.resumeAt || '',
         status: p.status === 'closed' ? 'closed' : 'active'
       }));
 
@@ -1509,6 +1531,7 @@
             priority: 1,
             weeklyHours: 6.0,
             deadline: addDaysStr(today, 21),
+            resumeAt: '',
             status: 'active'
           },
           {
@@ -1517,6 +1540,7 @@
             priority: 1,
             weeklyHours: 4.0,
             deadline: addDaysStr(today, 10),
+            resumeAt: '',
             status: 'active'
           }
         ],
@@ -1742,6 +1766,7 @@
     function renderTodayView() {
       syncRoutinesByDate();
       const today = getTodayStr();
+      const nowLocal = getNowLocalDateTimeStr();
       const wdNames = ['日', '月', '火', '水', '木', '金', '土'];
       const dObj = parseLocalDate(today);
       document.getElementById('today-date-badge').textContent = `${today} (${wdNames[dObj.getDay()]})`;
@@ -1877,9 +1902,19 @@
         }).join('');
       }
 
-      // 4. プロジェクト別・先頭1件抽出（動的優先度スコア昇順）
-      const activeProjectsWithForecast = state.projects
-        .filter(p => p.status === 'active')
+      // 4. プロジェクト別・先頭1件抽出（動的優先度スコア昇順 / 再開日時未設定または到達済みのみ）
+      const activeProjectsAll = state.projects.filter(p => p.status === 'active');
+      const sleepingProjectsCount = activeProjectsAll.filter(p => p.resumeAt && p.resumeAt > nowLocal).length;
+      const sleepingProjInfoEl = document.getElementById('project-sleeping-info');
+      if (sleepingProjectsCount > 0) {
+        sleepingProjInfoEl.textContent = `スリープ中: ${sleepingProjectsCount}件`;
+        sleepingProjInfoEl.classList.remove('hidden');
+      } else {
+        sleepingProjInfoEl.classList.add('hidden');
+      }
+
+      const activeProjectsWithForecast = activeProjectsAll
+        .filter(p => !p.resumeAt || p.resumeAt <= nowLocal)
         .map(p => ({ project: p, forecast: calcProjectForecast(p) }))
         .sort((a, b) => a.forecast.dynamicPriorityScore - b.forecast.dynamicPriorityScore);
 
@@ -2487,6 +2522,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認,1
             priority: Number(row.priority) || 1,
             weeklyHours: row.weeklyHours,
             deadline: row.deadline,
+            resumeAt: '',
             status: 'active'
           };
           state.projects.push(proj);
@@ -2527,6 +2563,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認,1
       document.getElementById('proj-priority').value = nextPrio;
       document.getElementById('proj-weekly-hours').value = '5';
       document.getElementById('proj-deadline').value = '';
+      document.getElementById('proj-resume-at').value = '';
       document.getElementById('proj-initial-tasks').value = '';
       document.getElementById('proj-initial-tasks-group').classList.remove('hidden');
       openModal('modal-project');
@@ -2541,6 +2578,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認,1
       document.getElementById('proj-priority').value = p.priority || 1;
       document.getElementById('proj-weekly-hours').value = p.weeklyHours;
       document.getElementById('proj-deadline').value = p.deadline || '';
+      document.getElementById('proj-resume-at').value = p.resumeAt || '';
       document.getElementById('proj-initial-tasks-group').classList.add('hidden');
       openModal('modal-project');
     }
@@ -2559,6 +2597,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認,1
       const priority = parseInt(document.getElementById('proj-priority').value, 10) || 1;
       const weeklyHours = parseFloat(document.getElementById('proj-weekly-hours').value) || 5.0;
       const deadline = document.getElementById('proj-deadline').value;
+      const resumeAt = document.getElementById('proj-resume-at').value;
 
       if (!name) return;
       takeUndoSnapshot();
@@ -2570,6 +2609,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認,1
           p.priority = priority;
           p.weeklyHours = weeklyHours;
           p.deadline = deadline;
+          p.resumeAt = resumeAt;
         }
         saveState();
         closeModal('modal-project');
@@ -2584,6 +2624,7 @@ Webアプリ開発,GitHub Pages公開テスト,1,,,URL共有確認,1
           priority,
           weeklyHours,
           deadline,
+          resumeAt,
           status: 'active'
         });
 
