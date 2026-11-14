@@ -831,7 +831,7 @@
           </select>
           <input type="date" id="quick-task-date" class="input quick-spot-date hidden" title="実行指定日" />
           <input type="text" id="spot-input-title" class="input quick-spot-title" placeholder="例：電球を買う、〇月〇日に請求書を送付する..." required />
-          <input type="number" id="spot-input-hours" class="input quick-spot-hours" step="0.25" min="0.1" max="50" value="0.5" title="見積もり工数(時間)" />
+          <input type="number" id="spot-input-hours" class="input quick-spot-hours" step="0.1" min="0.1" max="99.9" value="0.5" title="見積もり工数(時間)" />
           <span style="font-size: 12px; color: var(--text-secondary);">時間</span>
           <button type="submit" class="btn btn-primary">＋ 追加</button>
         </form>
@@ -983,7 +983,7 @@
               <div class="form-grid-2">
                 <div class="form-group">
                   <label class="form-label">見積もり工数 (h)</label>
-                  <input type="number" id="routine-hours" class="input" step="0.25" min="0.1" max="50" value="0.5" required />
+                  <input type="number" id="routine-hours" class="input" step="0.1" min="0.1" max="99.9" value="0.5" required />
                 </div>
                 <div class="form-group">
                   <label class="form-label">繰り返し方式</label>
