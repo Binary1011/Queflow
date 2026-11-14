@@ -1838,7 +1838,6 @@
                 <div class="task-card-title">${escHtml(s.title)}</div>
               </div>
               <div class="task-card-actions">
-                <button class="btn btn-outline btn-sm" onclick="completeSpotTask('${s.id}', 'closed')">見送り</button>
                 <button class="btn btn-success btn-sm" onclick="completeSpotTask('${s.id}', 'done')">✓ 完了</button>
               </div>
             </div>
@@ -1876,7 +1875,6 @@
                 <div class="task-card-title">${escHtml(s.title)}</div>
               </div>
               <div class="task-card-actions">
-                <button class="btn btn-outline btn-sm" onclick="completeScheduledTask('${s.id}', 'closed')">見送り</button>
                 <button class="btn btn-success btn-sm" onclick="completeScheduledTask('${s.id}', 'done')">✓ 完了</button>
               </div>
             </div>
@@ -2012,7 +2010,6 @@
               <div class="task-card-actions">
                 <button class="btn ${isDoToday ? 'btn-warning-soft' : 'btn-outline'} btn-sm" onclick="toggleTaskDoToday('${headTask.id}')" title="今日やるマークを切り替え（1日経過で自動解除）">${isDoToday ? '★ 今日やる解除' : '☆ 今日やる'}</button>
                 <button class="btn btn-outline btn-sm" onclick="openWbsForProject('${project.id}')">WBS</button>
-                <button class="btn btn-outline btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'closed')">見送り</button>
                 <button class="btn btn-primary btn-sm" onclick="completeProjectHeadTask('${headTask.id}', 'done')">✓ 完了</button>
               </div>
             </div>
