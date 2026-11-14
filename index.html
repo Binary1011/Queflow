@@ -1355,7 +1355,7 @@
       const progressPct = totalHours > 0 ? Math.round((doneHours / totalHours) * 100) : 100;
 
       const weekly = Number(project.weeklyHours) || 1;
-      const neededDays = remHours > 0 ? Math.ceil((remHours / weekly) * 7) : 0;
+      const neededDays = remHours > 0 ? Math.max(0, Math.ceil(((remHours - weekly) / weekly) * 7)) : 0;
       const today = getTodayStr();
       const estimatedEndStr = addDaysStr(today, neededDays);
 
